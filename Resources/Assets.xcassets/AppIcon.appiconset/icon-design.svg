@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0066FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00CC88;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Wave Gradient - Blue (Japanese side) -->
+    <linearGradient id="waveBlue" x1="0%" y1="50%" x2="50%" y2="50%">
+      <stop offset="0%" style="stop-color:#0066FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0088FF;stop-opacity:0.9" />
+    </linearGradient>
+
+    <!-- Wave Gradient - Green (English side) -->
+    <linearGradient id="waveGreen" x1="50%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#00CC88;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#00EE99;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Center Glow -->
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="30%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFFFFF;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background with rounded corners for iOS -->
+  <rect width="1024" height="1024" rx="226" ry="226" fill="url(#bgGradient)" />
+
+  <!-- Sound Wave - Japanese (Left, Blue) -->
+  <!-- Wave 1 - Outer -->
+  <path d="M 200 512 Q 250 350, 300 512 T 400 512"
+        stroke="url(#waveBlue)"
+        stroke-width="40"
+        fill="none"
+        opacity="0.4"
+        stroke-linecap="round"/>
+
+  <!-- Wave 2 - Middle -->
+  <path d="M 250 512 Q 300 400, 350 512 T 450 512"
+        stroke="url(#waveBlue)"
+        stroke-width="50"
+        fill="none"
+        opacity="0.6"
+        stroke-linecap="round"/>
+
+  <!-- Wave 3 - Inner -->
+  <path d="M 300 512 Q 350 450, 400 512 T 500 512"
+        stroke="url(#waveBlue)"
+        stroke-width="60"
+        fill="none"
+        opacity="0.8"
+        stroke-linecap="round"/>
+
+  <!-- Sound Wave - English (Right, Green) -->
+  <!-- Wave 1 - Outer -->
+  <path d="M 824 512 Q 774 674, 724 512 T 624 512"
+        stroke="url(#waveGreen)"
+        stroke-width="40"
+        fill="none"
+        opacity="0.4"
+        stroke-linecap="round"/>
+
+  <!-- Wave 2 - Middle -->
+  <path d="M 774 512 Q 724 624, 674 512 T 574 512"
+        stroke="url(#waveGreen)"
+        stroke-width="50"
+        fill="none"
+        opacity="0.6"
+        stroke-linecap="round"/>
+
+  <!-- Wave 3 - Inner -->
+  <path d="M 724 512 Q 674 574, 624 512 T 524 512"
+        stroke="url(#waveGreen)"
+        stroke-width="60"
+        fill="none"
+        opacity="0.8"
+        stroke-linecap="round"/>
+
+  <!-- Center Connection Point -->
+  <!-- Large circle - glow effect -->
+  <circle cx="512" cy="512" r="120" fill="url(#centerGlow)" opacity="0.6"/>
+
+  <!-- Medium circle - bright center -->
+  <circle cx="512" cy="512" r="80" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- Small circle - core -->
+  <circle cx="512" cy="512" r="50" fill="#FFFFFF" opacity="1"/>
+
+  <!-- Translation Symbol (Stylized arrows) -->
+  <!-- Left to Right arrow (Blue) -->
+  <path d="M 380 490 L 480 490 L 460 470 M 480 490 L 460 510"
+        stroke="#0066FF"
+        stroke-width="8"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.8"/>
+
+  <!-- Right to Left arrow (Green) -->
+  <path d="M 644 534 L 544 534 L 564 514 M 544 534 L 564 554"
+        stroke="#00CC88"
+        stroke-width="8"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.8"/>
+
+  <!-- Accent dots (representing real-time communication) -->
+  <circle cx="420" cy="512" r="10" fill="#FFFFFF" opacity="0.7">
+    <animate attributeName="opacity" values="0.3;0.9;0.3" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="512" cy="512" r="12" fill="#FFFFFF" opacity="0.9">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" begin="0.3s"/>
+  </circle>
+  <circle cx="604" cy="512" r="10" fill="#FFFFFF" opacity="0.7">
+    <animate attributeName="opacity" values="0.3;0.9;0.3" dur="2s" repeatCount="indefinite" begin="0.6s"/>
+  </circle>
+</svg>

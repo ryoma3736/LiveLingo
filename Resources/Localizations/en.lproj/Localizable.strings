@@ -1,0 +1,44 @@
+/* Common */
+"app_name" = "LiveLingo";
+"cancel" = "Cancel";
+"done" = "Done";
+"save" = "Save";
+"delete" = "Delete";
+"error" = "Error";
+"ok" = "OK";
+
+/* Conversation */
+"start_conversation" = "Start Conversation";
+"stop_conversation" = "Stop";
+"listening" = "Listening...";
+"translating" = "Translating...";
+"speaking" = "Speaking...";
+"tap_to_speak" = "Tap to speak";
+
+/* Languages */
+"source_language" = "Source Language";
+"target_language" = "Target Language";
+"japanese" = "Japanese";
+"english" = "English";
+"bidirectional" = "Bidirectional";
+
+/* Settings */
+"settings" = "Settings";
+"audio_settings" = "Audio Settings";
+"voice_selection" = "Voice Selection";
+"speech_rate" = "Speech Rate";
+"auto_play" = "Auto Play Translation";
+"api_settings" = "API Settings";
+"gemini_api_key" = "Gemini API Key";
+
+/* History */
+"history" = "History";
+"no_conversations" = "No conversations yet";
+"clear_history" = "Clear History";
+
+/* Errors */
+"microphone_permission_denied" = "Microphone access is required for speech translation";
+"speech_recognition_unavailable" = "Speech recognition is unavailable on this device";
+"translation_failed" = "Translation failed. Please try again.";
+"network_error" = "Network error occurred. Check your connection.";
+"api_key_missing" = "API key is not configured. Go to Settings.";

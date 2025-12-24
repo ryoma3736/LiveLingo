@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Tinted Mode - Monochromatic design for widget/control center -->
+    <!-- Single color with opacity variations -->
+    <radialGradient id="tintedGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.3" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background - Transparent (system will apply tint) -->
+  <rect width="1024" height="1024" rx="226" ry="226" fill="url(#tintedGlow)" />
+
+  <!-- Sound Wave - Japanese (Left) - Simple monochrome -->
+  <path d="M 200 512 Q 250 350, 300 512 T 400 512"
+        stroke="#000000"
+        stroke-width="35"
+        fill="none"
+        opacity="0.3"
+        stroke-linecap="round"/>
+
+  <path d="M 250 512 Q 300 400, 350 512 T 450 512"
+        stroke="#000000"
+        stroke-width="45"
+        fill="none"
+        opacity="0.5"
+        stroke-linecap="round"/>
+
+  <path d="M 300 512 Q 350 450, 400 512 T 500 512"
+        stroke="#000000"
+        stroke-width="55"
+        fill="none"
+        opacity="0.7"
+        stroke-linecap="round"/>
+
+  <!-- Sound Wave - English (Right) -->
+  <path d="M 824 512 Q 774 674, 724 512 T 624 512"
+        stroke="#000000"
+        stroke-width="35"
+        fill="none"
+        opacity="0.3"
+        stroke-linecap="round"/>
+
+  <path d="M 774 512 Q 724 624, 674 512 T 574 512"
+        stroke="#000000"
+        stroke-width="45"
+        fill="none"
+        opacity="0.5"
+        stroke-linecap="round"/>
+
+  <path d="M 724 512 Q 674 574, 624 512 T 524 512"
+        stroke="#000000"
+        stroke-width="55"
+        fill="none"
+        opacity="0.7"
+        stroke-linecap="round"/>
+
+  <!-- Center Connection Point - Simplified -->
+  <circle cx="512" cy="512" r="100" fill="#000000" opacity="0.2"/>
+  <circle cx="512" cy="512" r="70" fill="#000000" opacity="0.5"/>
+  <circle cx="512" cy="512" r="40" fill="#000000" opacity="0.8"/>
+
+  <!-- Translation Arrows - Monochrome -->
+  <path d="M 380 490 L 480 490 L 460 470 M 480 490 L 460 510"
+        stroke="#000000"
+        stroke-width="10"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.6"/>
+
+  <path d="M 644 534 L 544 534 L 564 514 M 544 534 L 564 554"
+        stroke="#000000"
+        stroke-width="10"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.6"/>
+
+  <!-- Accent dots - Simplified -->
+  <circle cx="420" cy="512" r="12" fill="#000000" opacity="0.6"/>
+  <circle cx="512" cy="512" r="15" fill="#000000" opacity="0.8"/>
+  <circle cx="604" cy="512" r="12" fill="#000000" opacity="0.6"/>
+</svg>
