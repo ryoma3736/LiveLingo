@@ -22,8 +22,16 @@ This document provides a comprehensive index of integration test designs based o
 | IT-ERR | Error Handling | 5 | 48 | P0-Critical |
 | IT-PERF | Performance | 4 | 35 | P1-High |
 | IT-SEC | Security & Privacy | 4 | 40 | P0-Critical |
+| **IT-VIEW** | **SwiftUI View Components** | **9** | **85** | **P1-High** |
+| **IT-BIND** | **ViewModel-View Binding** | **7** | **72** | **P0-Critical** |
+| **IT-STATE** | **State Management UI** | **7** | **68** | **P0-Critical** |
+| **IT-A11Y** | **Accessibility UI** | **8** | **58** | **P1-High** |
+| **IT-L10N** | **Localization UI** | **8** | **52** | **P1-High** |
+| **IT-ANIM** | **Animation & Gesture** | **7** | **45** | **P2-Medium** |
+| **IT-LAYOUT** | **Responsive Layout** | **7** | **48** | **P2-Medium** |
+| **IT-THEME** | **Dark Mode & Theming** | **8** | **42** | **P2-Medium** |
 
-**Total: 70 Workflows, 560+ Test Cases**
+**Total: 126 Workflows, 1030+ Test Cases**
 
 ---
 
@@ -83,6 +91,28 @@ Examples:
 |------|----------|-------------|
 | [09-language-management-integration.md](./09-language-management-integration.md) | IT-LNG | Language pair and pack management |
 | [10-ui-navigation-integration.md](./10-ui-navigation-integration.md) | IT-NAV | UI navigation flow integration |
+| [20-animation-gesture-integration.md](./20-animation-gesture-integration.md) | IT-ANIM | Animation and gesture handling |
+| [21-responsive-layout-integration.md](./21-responsive-layout-integration.md) | IT-LAYOUT | Responsive layout across devices |
+| [22-dark-mode-theming-integration.md](./22-dark-mode-theming-integration.md) | IT-THEME | Dark mode and theming support |
+
+---
+
+## GUI Integration Tests (NEW)
+
+### P0-Critical (GUI State Management)
+
+| File | Category | Description |
+|------|----------|-------------|
+| [16-viewmodel-binding-integration.md](./16-viewmodel-binding-integration.md) | IT-BIND | ViewModel-View binding and state propagation |
+| [17-state-management-ui-integration.md](./17-state-management-ui-integration.md) | IT-STATE | State machine UI synchronization |
+
+### P1-High (GUI Component & Accessibility)
+
+| File | Category | Description |
+|------|----------|-------------|
+| [15-view-component-integration.md](./15-view-component-integration.md) | IT-VIEW | SwiftUI view component rendering |
+| [18-accessibility-ui-integration.md](./18-accessibility-ui-integration.md) | IT-A11Y | VoiceOver and accessibility support |
+| [19-localization-ui-integration.md](./19-localization-ui-integration.md) | IT-L10N | Multi-language UI and localization |
 
 ---
 
