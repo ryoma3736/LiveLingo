@@ -5,6 +5,106 @@ interface GeminiConfig {
   model?: string;
 }
 
+interface AudioChunk {
+  audio: string;
+  format?: string;
+  sampleRate?: number;
+}
+
+interface TranscriptionResult {
+  text: string;
+  confidence: number;
+  language?: string;
+}
+
+interface TranslationResult {
+  originalText: string;
+  translatedText: string;
+  targetLanguage: string;
+  sourceLanguage?: string;
+}
+
+/**
+ * REST-based Gemini Service for simple operations
+ */
+export class GeminiService {
+  private apiKey: string;
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  async translateText(
+    text: string,
+    targetLanguage: string,
+    sourceLanguage?: string
+  ): Promise<TranslationResult> {
+    const prompt = sourceLanguage
+      ? `Translate the following text from ${sourceLanguage} to ${targetLanguage}. Only respond with the translation, nothing else:\n\n${text}`
+      : `Translate the following text to ${targetLanguage}. Only respond with the translation, nothing else:\n\n${text}`;
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/models/gemini-2.0-flash-exp:generateContent?key=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+
+      const data = await response.json() as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>
+          }
+        }>
+      };
+      const translatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      return {
+        originalText: text,
+        translatedText: translatedText.trim(),
+        targetLanguage,
+        sourceLanguage
+      };
+    } catch (error) {
+      console.error('Translation error:', error);
+      throw error;
+    }
+  }
+
+  async transcribeAudio(
+    audioChunk: AudioChunk,
+    language?: string
+  ): Promise<TranscriptionResult> {
+    // For now, return a placeholder since audio transcription requires different handling
+    return {
+      text: '[Audio transcription not yet implemented]',
+      confidence: 0,
+      language
+    };
+  }
+
+  async transcribeAndTranslate(
+    audioChunk: AudioChunk,
+    targetLanguage: string,
+    sourceLanguage?: string
+  ): Promise<{ transcription: TranscriptionResult; translation: TranslationResult }> {
+    const transcription = await this.transcribeAudio(audioChunk, sourceLanguage);
+    const translation = await this.translateText(
+      transcription.text,
+      targetLanguage,
+      sourceLanguage
+    );
+
+    return { transcription, translation };
+  }
+}
+
 interface TranslationMode {
   sourceLanguage: string;
   targetLanguage: string;

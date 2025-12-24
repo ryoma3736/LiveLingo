@@ -46,9 +46,10 @@ export function createApiRouter(geminiService: GeminiService): Router {
       const { text, targetLanguage, sourceLanguage } = req.body;
 
       if (!text || !targetLanguage) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Missing required fields: text, targetLanguage',
         });
+        return;
       }
 
       const result = await geminiService.translateText(

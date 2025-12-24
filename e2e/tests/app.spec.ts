@@ -11,19 +11,18 @@ test.describe('LiveLingo Application', () => {
   });
 
   test('should show connection status indicator', async ({ page }) => {
-    // Check for connection status element
-    const statusText = page.getByText(/Connected|Disconnected/);
+    // Check for connection status element - new design uses "Connecting..." or "Connected"
+    const statusText = page.getByText(/Connected|Connecting/);
     await expect(statusText).toBeVisible();
   });
 
-  test('should display language selection dropdowns', async ({ page }) => {
-    // Source language dropdown
-    const sourceLabel = page.getByText('Source Language');
-    await expect(sourceLabel).toBeVisible();
+  test('should display language selection buttons', async ({ page }) => {
+    // New design uses button pills instead of dropdowns
+    const fromLabel = page.getByText('From', { exact: true });
+    await expect(fromLabel).toBeVisible();
 
-    // Target language dropdown
-    const targetLabel = page.getByText('Target Language');
-    await expect(targetLabel).toBeVisible();
+    const toLabel = page.getByText('To', { exact: true });
+    await expect(toLabel).toBeVisible();
   });
 
   test('should have record button visible', async ({ page }) => {
@@ -32,27 +31,29 @@ test.describe('LiveLingo Application', () => {
     await expect(recordButton).toBeVisible();
   });
 
-  test('should be able to change source language', async ({ page }) => {
-    // Find and interact with source language dropdown
-    const sourceSelect = page.locator('select').first();
-    await sourceSelect.selectOption('ja');
-    await expect(sourceSelect).toHaveValue('ja');
+  test('should be able to select source language', async ({ page }) => {
+    // Find and click Japanese as source language by aria-label
+    const japaneseButton = page.locator('button[aria-label="Select Japanese as source language"]');
+    await japaneseButton.click();
+    // Verify it's now active
+    await expect(japaneseButton).toHaveClass(/active/);
   });
 
-  test('should be able to change target language', async ({ page }) => {
-    // Find and interact with target language dropdown
-    const targetSelect = page.locator('select').last();
-    await targetSelect.selectOption('en');
-    await expect(targetSelect).toHaveValue('en');
+  test('should be able to select target language', async ({ page }) => {
+    // Find and click English as target language by aria-label
+    const englishButton = page.locator('button[aria-label="Select English as target language"]');
+    await englishButton.click();
+    // Verify it's now active
+    await expect(englishButton).toHaveClass(/active/);
   });
 
-  test('should show translation history section', async ({ page }) => {
-    const historySection = page.getByText('Translation History');
+  test('should show history section', async ({ page }) => {
+    const historySection = page.getByText('History');
     await expect(historySection).toBeVisible();
   });
 
   test('should show empty state message when no translations', async ({ page }) => {
-    const emptyMessage = page.getByText(/No translations yet|Click the microphone/i);
+    const emptyMessage = page.getByText(/Tap the microphone|start translating/i);
     await expect(emptyMessage).toBeVisible();
   });
 });
@@ -98,12 +99,12 @@ test.describe('Accessibility', () => {
     expect(buttonCount).toBeGreaterThan(0);
   });
 
-  test('should have labeled form controls', async ({ page }) => {
+  test('should have aria labels on language buttons', async ({ page }) => {
     await page.goto('/');
 
-    // Check that selects have associated labels
-    const selects = page.locator('select');
-    const selectCount = await selects.count();
-    expect(selectCount).toBeGreaterThan(0);
+    // Check that language buttons have aria-labels
+    const ariaButtons = page.locator('button[aria-label*="language"]');
+    const count = await ariaButtons.count();
+    expect(count).toBeGreaterThan(0);
   });
 });

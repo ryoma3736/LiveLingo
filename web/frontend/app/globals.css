@@ -2,46 +2,412 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   Apple-inspired Global Styles
+   ============================================ */
+
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  /* Light Mode Colors (Apple HIG) */
+  --color-background: 255, 255, 255;
+  --color-surface: 250, 250, 250;
+  --color-surface-elevated: 255, 255, 255;
+  --color-text-primary: 28, 28, 30;
+  --color-text-secondary: 117, 117, 117;
+  --color-text-tertiary: 189, 189, 189;
+  --color-border: 238, 238, 238;
+  --color-divider: 224, 224, 224;
+
+  /* Accent Color (Blue) */
+  --color-accent: 59, 130, 246;
+  --color-accent-hover: 37, 99, 235;
+
+  /* Semantic Colors */
+  --color-success: 52, 199, 89;
+  --color-warning: 255, 149, 0;
+  --color-error: 255, 59, 48;
+
+  /* Glass Morphism */
+  --glass-background: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: rgba(0, 0, 0, 0.12);
+
+  /* Spacing Scale (8pt Grid) */
+  --spacing-unit: 0.5rem; /* 8px */
+
+  /* Transition Timing */
+  --timing-fast: 150ms;
+  --timing-base: 200ms;
+  --timing-slow: 300ms;
+  --timing-slower: 400ms;
+  --easing-apple: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    /* Dark Mode Colors */
+    --color-background: 0, 0, 0;
+    --color-surface: 28, 28, 30;
+    --color-surface-elevated: 44, 44, 46;
+    --color-text-primary: 255, 255, 255;
+    --color-text-secondary: 158, 158, 158;
+    --color-text-tertiary: 117, 117, 117;
+    --color-border: 66, 66, 66;
+    --color-divider: 97, 97, 97;
+
+    /* Glass Morphism (Dark) */
+    --glass-background: rgba(28, 28, 30, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: rgba(0, 0, 0, 0.4);
   }
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 2rem;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  @apply font-sans antialiased;
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-text-primary));
+  overflow-x: hidden;
 }
 
+/* ============================================
+   Typography
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display tracking-apple;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+
+h1 {
+  @apply text-5xl md:text-6xl lg:text-7xl;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+h2 {
+  @apply text-4xl md:text-5xl;
+  line-height: 1.1;
+}
+
+h3 {
+  @apply text-3xl md:text-4xl;
+  line-height: 1.15;
+}
+
+p {
+  @apply leading-relaxed;
+  color: rgb(var(--color-text-secondary));
+}
+
+/* ============================================
+   Glass Morphism Utilities
+   ============================================ */
+
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .glass {
+    background: var(--glass-background);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+  }
+
+  .glass-strong {
+    background: var(--glass-background);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid var(--glass-border);
+  }
+
+  .surface-elevated {
+    background-color: rgb(var(--color-surface-elevated));
+  }
+
+  .text-primary {
+    color: rgb(var(--color-text-primary));
+  }
+
+  .text-secondary {
+    color: rgb(var(--color-text-secondary));
+  }
+
+  .text-tertiary {
+    color: rgb(var(--color-text-tertiary));
+  }
+
+  .divider {
+    height: 1px;
+    background-color: rgb(var(--color-divider));
+  }
+
+  .border-subtle {
+    border-color: rgb(var(--color-border));
   }
 }
 
-.recording-animation {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* ============================================
+   Animation Utilities
+   ============================================ */
+
+@layer utilities {
+  .animate-breathe {
+    animation: breathe 2s var(--easing-smooth) infinite;
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s var(--easing-smooth) infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up var(--timing-slower) var(--easing-apple);
+  }
+
+  .animate-fade-in {
+    animation: fade-in var(--timing-slow) var(--easing-apple);
+  }
+
+  .transition-apple {
+    transition: all var(--timing-base) var(--easing-apple);
+  }
+
+  .transition-smooth {
+    transition: all var(--timing-base) var(--easing-smooth);
+  }
 }
 
+/* ============================================
+   Component Styles
+   ============================================ */
+
+/* Recording Button */
+.recording-button {
+  @apply relative w-32 h-32 rounded-full;
+  @apply flex items-center justify-center;
+  @apply transition-all duration-200;
+  @apply cursor-pointer select-none;
+  background: linear-gradient(145deg, rgb(var(--color-accent)), rgb(var(--color-accent-hover)));
+  box-shadow:
+    0 10px 30px rgba(var(--color-accent), 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.recording-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow:
+    0 15px 40px rgba(var(--color-accent), 0.4),
+    0 5px 15px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.recording-button:active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 100ms;
+}
+
+.recording-button.recording {
+  background: linear-gradient(145deg, #FF3B30, #FF2D20);
+  animation: breathe 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow:
+    0 0 30px rgba(255, 59, 48, 0.5),
+    0 10px 30px rgba(255, 59, 48, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.recording-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Translation Card */
 .translation-card {
-  @apply bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-all duration-300;
+  @apply glass rounded-apple-lg p-6;
+  @apply shadow-glass;
+  @apply transition-apple;
+  @apply border border-subtle;
 }
 
-.language-selector {
-  @apply px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600
-         focus:border-primary-500 focus:ring-2 focus:ring-primary-200
-         transition-colors duration-200;
+.translation-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 40px var(--glass-shadow),
+    0 1px 0 var(--glass-border);
+}
+
+/* Language Selector Pills */
+.language-pill {
+  @apply glass rounded-full px-6 py-3;
+  @apply text-sm font-medium;
+  @apply transition-apple;
+  @apply cursor-pointer select-none;
+  @apply border border-subtle;
+}
+
+.language-pill:hover {
+  background: rgba(var(--color-accent), 0.1);
+  border-color: rgb(var(--color-accent));
+}
+
+.language-pill.active {
+  background: rgb(var(--color-accent));
+  color: white;
+  border-color: rgb(var(--color-accent));
+}
+
+/* Status Indicator */
+.status-indicator {
+  @apply w-2 h-2 rounded-full;
+  position: relative;
+}
+
+.status-indicator.connected {
+  background-color: var(--color-success);
+  box-shadow: 0 0 8px rgba(var(--color-success), 0.6);
+}
+
+.status-indicator.connected::before {
+  content: '';
+  @apply absolute inset-0 rounded-full;
+  background-color: var(--color-success);
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.status-indicator.disconnected {
+  background-color: var(--color-error);
+}
+
+/* ============================================
+   Keyframe Animations
+   ============================================ */
+
+@keyframes breathe {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.92;
+  }
+}
+
+@keyframes slide-up {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* ============================================
+   Selection & Focus States
+   ============================================ */
+
+::selection {
+  background-color: rgba(var(--color-accent), 0.3);
+  color: rgb(var(--color-text-primary));
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   Scrollbar (Webkit)
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-surface));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-text-tertiary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-text-secondary));
+}
+
+/* ============================================
+   Safe Area (iOS)
+   ============================================ */
+
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .glass,
+  .glass-strong {
+    background: white;
+    border: 1px solid #e0e0e0;
+  }
 }

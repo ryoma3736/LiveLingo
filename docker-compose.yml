@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -14,11 +12,7 @@ services:
       - backend
     networks:
       - livelingo
-    volumes:
-      - ./web/frontend:/app
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
+    restart: unless-stopped
 
   backend:
     build:
@@ -29,15 +23,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/livelingo
       - PORT=8080
-      - NODE_ENV=development
+      - NODE_ENV=production
     depends_on:
       db:
         condition: service_healthy
     networks:
       - livelingo
-    volumes:
-      - ./web/backend:/app
-      - /app/node_modules
+    restart: unless-stopped
 
   db:
     image: postgres:16-alpine
@@ -57,6 +49,7 @@ services:
       retries: 5
     networks:
       - livelingo
+    restart: unless-stopped
 
 networks:
   livelingo:
