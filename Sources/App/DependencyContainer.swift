@@ -93,6 +93,36 @@ public struct GlossaryRepositoryKey: DependencyKey {
     }
 }
 
+/// Gemini Live Service Dependency
+public struct GeminiLiveServiceKey: DependencyKey {
+    public static var liveValue: GeminiLiveService {
+        GeminiLiveService()
+    }
+
+    public static var testValue: GeminiLiveService {
+        GeminiLiveService()
+    }
+
+    public static var previewValue: GeminiLiveService {
+        GeminiLiveService()
+    }
+}
+
+/// Live Translation Service Dependency
+public struct LiveTranslationServiceKey: DependencyKey {
+    public static var liveValue: LiveTranslationService {
+        LiveTranslationService()
+    }
+
+    public static var testValue: LiveTranslationService {
+        LiveTranslationService()
+    }
+
+    public static var previewValue: LiveTranslationService {
+        LiveTranslationService()
+    }
+}
+
 // MARK: - Dependency Values Extension
 
 extension DependencyValues {
@@ -130,6 +160,18 @@ extension DependencyValues {
     public var glossaryRepository: any GlossaryRepositoryProtocol {
         get { self[GlossaryRepositoryKey.self] }
         set { self[GlossaryRepositoryKey.self] = newValue }
+    }
+
+    /// Gemini Live Service
+    public var geminiLiveService: GeminiLiveService {
+        get { self[GeminiLiveServiceKey.self] }
+        set { self[GeminiLiveServiceKey.self] = newValue }
+    }
+
+    /// Live Translation Service (Gemini-powered)
+    public var liveTranslationService: LiveTranslationService {
+        get { self[LiveTranslationServiceKey.self] }
+        set { self[LiveTranslationServiceKey.self] = newValue }
     }
 }
 
