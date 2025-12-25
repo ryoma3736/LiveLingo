@@ -4,14 +4,19 @@ import Dependencies
 // MARK: - Conversation View
 
 /// Main conversation screen for real-time translation
+@MainActor
 public struct ConversationView: View {
     @StateObject private var viewModel: ConversationViewModel
 
     @State private var showSettings = false
     @State private var showHistory = false
 
-    public init(viewModel: ConversationViewModel = ConversationViewModel()) {
+    public init(viewModel: ConversationViewModel) {
         self._viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    public init() {
+        self._viewModel = StateObject(wrappedValue: ConversationViewModel())
     }
 
     public var body: some View {
@@ -106,9 +111,21 @@ public struct ConversationView: View {
                         .id(item.id)
                     }
 
-                    // Live recognition indicator
-                    if viewModel.isRecognizing, !viewModel.currentRecognitionText.isEmpty {
-                        liveRecognitionBubble
+                    // Live recognition/translation indicator
+                    if viewModel.isRecognizing {
+                        if viewModel.useStreamingMode {
+                            // Streaming mode: show live translation
+                            if !viewModel.currentTranslationText.isEmpty {
+                                liveTranslationBubble
+                            } else {
+                                listeningIndicator
+                            }
+                        } else {
+                            // Batch mode: show recognition text
+                            if !viewModel.currentRecognitionText.isEmpty {
+                                liveRecognitionBubble
+                            }
+                        }
                     }
                 }
                 .padding(.vertical, DesignSystem.Spacing.md)
@@ -123,6 +140,51 @@ public struct ConversationView: View {
         }
     }
 
+    /// Listening indicator (no text yet)
+    private var listeningIndicator: some View {
+        HStack {
+            Circle()
+                .fill(Color.blue)
+                .frame(width: 8, height: 8)
+                .scaleEffect(viewModel.audioLevels.last ?? 0 > 0.1 ? 1.5 : 1.0)
+                .animation(.easeInOut(duration: 0.1), value: viewModel.audioLevels.last)
+
+            Text("🎙️ Listening...")
+                .font(DesignSystem.Typography.caption1)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+        }
+        .padding(DesignSystem.Spacing.md)
+        .transition(.opacity)
+    }
+
+    /// Live streaming translation bubble
+    private var liveTranslationBubble: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            HStack {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(viewModel.audioLevels.last ?? 0 > 0.1 ? 1.5 : 1.0)
+                    .animation(.easeInOut(duration: 0.1), value: viewModel.audioLevels.last)
+
+                Text("🌐 Translating...")
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
+
+            Text(viewModel.currentTranslationText)
+                .font(DesignSystem.Typography.transcriptText)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+                .padding(DesignSystem.Spacing.md)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(DesignSystem.CornerRadius.large)
+        }
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .animation(.easeInOut(duration: 0.2), value: viewModel.currentTranslationText)
+    }
+
+    /// Live recognition bubble (batch mode)
     private var liveRecognitionBubble: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             HStack {
@@ -214,6 +276,7 @@ public final class ConversationViewModel: ObservableObject {
     @Published public var targetLanguage: SupportedLanguage = .englishUS
     @Published public var transcripts: [TranscriptItem] = []
     @Published public var currentRecognitionText: String = ""
+    @Published public var currentTranslationText: String = ""  // Streaming translation
     @Published public var audioLevels: [Float] = Array(repeating: 0, count: 20)
 
     @Published public var isRecognizing: Bool = false
@@ -222,9 +285,12 @@ public final class ConversationViewModel: ObservableObject {
     @Published public var errorMessage: String = ""
     @Published public var canRetry: Bool = false
 
+    /// Use streaming mode (Gemini Live API) or batch mode (STT + Translation + TTS)
+    @Published public var useStreamingMode: Bool = true
+
     public var statusText: String {
         if isRecognizing {
-            return "Listening... Tap to stop"
+            return useStreamingMode ? "🎙️ Live translating..." : "Listening... Tap to stop"
         } else if transcripts.isEmpty {
             return "Tap the microphone to start"
         } else {
@@ -237,6 +303,9 @@ public final class ConversationViewModel: ObservableObject {
     @Dependency(\.sttService) private var sttService
     @Dependency(\.translationService) private var translationService
     @Dependency(\.ttsService) private var ttsService
+
+    // Streaming mode service
+    private var liveTranslationService: LiveTranslationService?
 
     private var recognitionTask: Task<Void, Never>?
 
@@ -257,9 +326,109 @@ public final class ConversationViewModel: ObservableObject {
     public func startRecording() async {
         guard !isRecognizing else { return }
 
+        if useStreamingMode {
+            await startStreamingMode()
+        } else {
+            await startBatchMode()
+        }
+    }
+
+    public func stopRecording() async {
+        if useStreamingMode {
+            await stopStreamingMode()
+        } else {
+            await stopBatchMode()
+        }
+    }
+
+    // MARK: - Streaming Mode (Gemini Live API)
+
+    private func startStreamingMode() async {
         do {
             isRecognizing = true
             currentRecognitionText = ""
+            currentTranslationText = ""
+            print("[ConversationVM] Starting streaming mode (Gemini Live)...")
+
+            // Create and configure LiveTranslationService
+            let service = LiveTranslationService()
+
+            // Setup callbacks
+            service.onStreamingText = { [weak self] text in
+                Task { @MainActor in
+                    self?.currentTranslationText = text
+                }
+            }
+
+            service.onTranscript = { [weak self] item in
+                Task { @MainActor in
+                    self?.transcripts.append(item)
+                    self?.currentTranslationText = ""
+                    print("[ConversationVM] Final transcript: \(item.translatedText)")
+                }
+            }
+
+            service.onAudioLevel = { [weak self] level in
+                Task { @MainActor in
+                    self?.updateAudioLevels(confidence: level)
+                }
+            }
+
+            service.onError = { [weak self] error in
+                Task { @MainActor in
+                    print("[ConversationVM] Streaming error: \(error)")
+                    self?.handleError(error)
+                }
+            }
+
+            service.onStateChange = { [weak self] state in
+                Task { @MainActor in
+                    switch state {
+                    case .active:
+                        print("[ConversationVM] State: Active")
+                    case .processing:
+                        print("[ConversationVM] State: Processing")
+                    case .error:
+                        print("[ConversationVM] State: Error")
+                    default:
+                        break
+                    }
+                }
+            }
+
+            self.liveTranslationService = service
+
+            // Start session
+            try await service.startSession(
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage,
+                bidirectional: true
+            )
+
+            print("[ConversationVM] Streaming mode started successfully")
+
+        } catch {
+            print("[ConversationVM] Failed to start streaming: \(error)")
+            handleError(error)
+        }
+    }
+
+    private func stopStreamingMode() async {
+        print("[ConversationVM] Stopping streaming mode...")
+        await liveTranslationService?.stopSession()
+        liveTranslationService = nil
+        isRecognizing = false
+        currentTranslationText = ""
+        print("[ConversationVM] Streaming mode stopped")
+    }
+
+    // MARK: - Batch Mode (STT + Translation + TTS)
+
+    private func startBatchMode() async {
+        do {
+            isRecognizing = true
+            currentRecognitionText = ""
+            print("[ConversationVM] Starting batch mode (STT)...")
 
             let stream = try await sttService.startRecognition(language: sourceLanguage)
 
@@ -269,11 +438,13 @@ public final class ConversationViewModel: ObservableObject {
                 }
             }
         } catch {
+            print("[ConversationVM] STT Error: \(error)")
             handleError(error)
         }
     }
 
-    public func stopRecording() async {
+    private func stopBatchMode() async {
+        print("[ConversationVM] Stopping batch mode...")
         recognitionTask?.cancel()
         recognitionTask = nil
         await sttService.stopRecognition()
@@ -305,24 +476,32 @@ public final class ConversationViewModel: ObservableObject {
 
     public func copyToClipboard(_ item: TranscriptItem) {
         #if os(iOS)
-        let text = "\(item.originalText)\n\(item.translatedText ?? "")"
+        let text = "\(item.originalText)\n\(item.translatedText)"
         UIPasteboard.general.string = text
         #endif
     }
 
     public func speak(_ item: TranscriptItem) async {
-        guard isSpeakerEnabled else { return }
+        print("[ConversationVM] speak() called")
+        guard isSpeakerEnabled else {
+            print("[ConversationVM] Speaker disabled")
+            return
+        }
 
-        if let translation = item.translatedText {
-            let voice = await ttsService.availableVoices(for: item.targetLanguage).first
-            if let voice = voice {
-                do {
-                    let data = try await ttsService.synthesize(translation, voice: voice)
-                    try await ttsService.play(data)
-                } catch {
-                    // Ignore TTS errors silently
-                }
+        let text = item.translatedText
+        guard !text.isEmpty else { return }
+
+        // Get voice for target language
+        if let voice = await ttsService.defaultVoice(for: item.targetLanguage) {
+            do {
+                print("[ConversationVM] Speaking: '\(text.prefix(30))...' with voice: \(voice.name)")
+                try await ttsService.speak(text, voice: voice)
+                print("[ConversationVM] TTS completed")
+            } catch {
+                print("[ConversationVM] TTS error: \(error)")
             }
+        } else {
+            print("[ConversationVM] No voice available for \(item.targetLanguage)")
         }
     }
 
@@ -335,7 +514,9 @@ public final class ConversationViewModel: ObservableObject {
     // MARK: - Private Methods
 
     private func handleRecognitionResult(_ result: RecognitionResult) async {
-        currentRecognitionText = result.text
+        if !result.text.isEmpty {
+            currentRecognitionText = result.text
+        }
         updateAudioLevels(confidence: result.confidence)
 
         if result.isFinal {
@@ -344,32 +525,35 @@ public final class ConversationViewModel: ObservableObject {
     }
 
     private func finalizeRecognition() async {
+        print("[ConversationVM] finalizeRecognition: '\(currentRecognitionText)'")
         guard !currentRecognitionText.isEmpty else { return }
 
         do {
-            let translationResult = try await translationService.translate(
+            print("[ConversationVM] Translating...")
+            let result = try await translationService.translate(
                 currentRecognitionText,
                 from: sourceLanguage,
                 to: targetLanguage
             )
+            print("[ConversationVM] Translation: '\(result.translatedText)'")
 
             let transcript = TranscriptItem(
                 speaker: .speaker1,
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage,
                 originalText: currentRecognitionText,
-                translatedText: translationResult.translatedText
+                translatedText: result.translatedText
             )
 
             transcripts.append(transcript)
+            currentRecognitionText = ""
 
-            // Auto-speak translation
+            // Auto-speak
             if isSpeakerEnabled {
                 await speak(transcript)
             }
-
-            currentRecognitionText = ""
         } catch {
+            print("[ConversationVM] Translation error: \(error)")
             handleError(error)
         }
     }

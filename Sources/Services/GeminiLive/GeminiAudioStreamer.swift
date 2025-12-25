@@ -8,6 +8,7 @@ public actor GeminiAudioStreamer {
     // MARK: - Properties
 
     private var audioEngine: AVAudioEngine?
+    private var playbackEngine: AVAudioEngine?
     private var audioPlayer: AVAudioPlayerNode?
     private var audioFormat: AVAudioFormat?
 
@@ -15,11 +16,15 @@ public actor GeminiAudioStreamer {
     private var isPlaying = false
 
     private var captureCallback: ((Data) -> Void)?
+    private var audioLevelCallback: ((Float) -> Void)?
     private var outputBuffer = Data()
 
     // Audio format conversion
     private let inputFormat: AVAudioFormat
     private let outputFormat: AVAudioFormat
+
+    // Audio level tracking
+    private var lastAudioLevel: Float = 0
 
     // MARK: - Initialization
 
@@ -44,18 +49,24 @@ public actor GeminiAudioStreamer {
     // MARK: - Audio Capture
 
     /// Start capturing audio from microphone
-    public func startCapture(onAudioData: @escaping (Data) -> Void) async throws {
+    public func startCapture(
+        onAudioData: @escaping (Data) -> Void,
+        onAudioLevel: ((Float) -> Void)? = nil
+    ) async throws {
         guard !isCapturing else { return }
 
         captureCallback = onAudioData
+        audioLevelCallback = onAudioLevel
 
         audioEngine = AVAudioEngine()
         guard let audioEngine = audioEngine else {
-            throw LiveLingoError.audioSessionConfigurationFailed(reason: "Failed to create audio engine")
+            throw LiveLingoError.audioSessionConfigurationFailed(underlying: NSError(domain: "GeminiAudioStreamer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create audio engine"]))
         }
 
         let inputNode = audioEngine.inputNode
         let inputNodeFormat = inputNode.outputFormat(forBus: 0)
+
+        print("[AudioStreamer] Input format: \(inputNodeFormat.sampleRate)Hz, \(inputNodeFormat.channelCount) channels")
 
         // Install tap on input node
         inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(GeminiAudioFormat.chunkSize), format: inputNodeFormat) { [weak self] buffer, _ in
@@ -69,8 +80,9 @@ public actor GeminiAudioStreamer {
         do {
             try audioEngine.start()
             isCapturing = true
+            print("[AudioStreamer] Audio capture started")
         } catch {
-            throw LiveLingoError.audioSessionActivationFailed(reason: error.localizedDescription)
+            throw LiveLingoError.audioSessionActivationFailed(underlying: error)
         }
     }
 
@@ -78,11 +90,14 @@ public actor GeminiAudioStreamer {
     public func stopCapture() async {
         guard isCapturing else { return }
 
+        print("[AudioStreamer] Stopping audio capture...")
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil
         isCapturing = false
         captureCallback = nil
+        audioLevelCallback = nil
+        print("[AudioStreamer] Audio capture stopped")
     }
 
     // MARK: - Audio Playback
@@ -118,6 +133,12 @@ public actor GeminiAudioStreamer {
     private func processInputBuffer(_ buffer: AVAudioPCMBuffer, inputFormat: AVAudioFormat) async {
         guard let callback = captureCallback else { return }
 
+        // Calculate audio level (RMS)
+        if let levelCallback = audioLevelCallback {
+            let level = calculateRMSLevel(buffer)
+            levelCallback(level)
+        }
+
         // Convert to 16kHz mono PCM if needed
         let convertedData: Data
 
@@ -135,6 +156,35 @@ public actor GeminiAudioStreamer {
         }
 
         callback(convertedData)
+    }
+
+    /// Calculate RMS audio level from buffer (0.0 - 1.0)
+    private func calculateRMSLevel(_ buffer: AVAudioPCMBuffer) -> Float {
+        guard let channelData = buffer.floatChannelData else {
+            // For Int16 format, convert and calculate
+            if let int16Data = buffer.int16ChannelData {
+                let frameLength = Int(buffer.frameLength)
+                var sum: Float = 0
+                for i in 0..<frameLength {
+                    let sample = Float(int16Data[0][i]) / Float(Int16.max)
+                    sum += sample * sample
+                }
+                let rms = sqrt(sum / Float(frameLength))
+                // Normalize to 0-1 range with some headroom
+                return min(rms * 2.0, 1.0)
+            }
+            return 0
+        }
+
+        let frameLength = Int(buffer.frameLength)
+        var sum: Float = 0
+        for i in 0..<frameLength {
+            let sample = channelData[0][i]
+            sum += sample * sample
+        }
+        let rms = sqrt(sum / Float(frameLength))
+        // Normalize to 0-1 range
+        return min(rms * 2.0, 1.0)
     }
 
     private func playBuffer() async throws {
@@ -159,7 +209,7 @@ public actor GeminiAudioStreamer {
             do {
                 try engine.start()
             } catch {
-                throw LiveLingoError.ttsPlaybackFailed(reason: error.localizedDescription)
+                throw LiveLingoError.ttsPlaybackFailed(underlying: error)
             }
 
             self.audioEngine = engine
@@ -236,10 +286,15 @@ public actor LiveTranslationService {
 
     private var isActive = false
 
-    // Callbacks
-    public var onTranscript: (@Sendable (TranscriptItem) -> Void)?
-    public var onStateChange: (@Sendable (LiveTranslationState) -> Void)?
-    public var onError: (@Sendable (Error) -> Void)?
+    // Callbacks (nonisolated for access from Sendable closures)
+    public nonisolated(unsafe) var onTranscript: (@Sendable (TranscriptItem) -> Void)?
+    public nonisolated(unsafe) var onStreamingText: (@Sendable (String) -> Void)?
+    public nonisolated(unsafe) var onAudioLevel: (@Sendable (Float) -> Void)?
+    public nonisolated(unsafe) var onStateChange: (@Sendable (LiveTranslationState) -> Void)?
+    public nonisolated(unsafe) var onError: (@Sendable (Error) -> Void)?
+
+    // Current streaming translation buffer
+    private var currentStreamingText: String = ""
 
     public init(keychain: KeychainManagerProtocol = KeychainManager.shared) {
         self.geminiService = GeminiLiveService()
@@ -259,10 +314,15 @@ public actor LiveTranslationService {
             throw LiveLingoError.sttAlreadyRecognizing
         }
 
-        // Get API key from keychain
-        guard let apiKey = try? keychain.loadString(key: .openAIAPIKey) else {
-            // For Gemini, we might use a different key - this is placeholder
-            throw LiveLingoError.authenticationRequired
+        // Get API key from configuration or keychain
+        let apiKey: String
+        let configuredKey = "AIzaSyBG9AiW1hcAPyN0b1PbTLRqAjH-Ri9hZPE" // Gemini API Key
+        if !configuredKey.isEmpty && configuredKey != "YOUR_API_KEY_HERE" {
+            apiKey = configuredKey
+        } else if let keychainKey = try? keychain.loadString(key: .openAIAPIKey) {
+            apiKey = keychainKey
+        } else {
+            throw LiveLingoError.apiKeyMissing(service: "Gemini")
         }
 
         let config = GeminiLiveConfig(
@@ -283,27 +343,36 @@ public actor LiveTranslationService {
         // Connect to Gemini
         try await geminiService.connect(config: config, translationMode: translationMode)
 
-        // Start audio capture
-        try await audioStreamer.startCapture { [weak self] data in
-            Task {
-                try? await self?.geminiService.sendAudio(data)
+        // Start audio capture with level monitoring
+        try await audioStreamer.startCapture(
+            onAudioData: { [weak self] data in
+                Task {
+                    try? await self?.geminiService.sendAudio(data)
+                }
+            },
+            onAudioLevel: { [weak self] level in
+                self?.onAudioLevel?(level)
             }
-        }
+        )
 
         isActive = true
         onStateChange?(.active)
+        print("[LiveTranslation] Session started")
     }
 
     /// Stop live translation session
     public func stopSession() async {
         guard isActive else { return }
 
+        print("[LiveTranslation] Stopping session...")
         await audioStreamer.stopCapture()
         await audioStreamer.stopPlayback()
         await geminiService.disconnect()
 
         isActive = false
+        currentStreamingText = ""
         onStateChange?(.inactive)
+        print("[LiveTranslation] Session stopped")
     }
 
     /// Send text message for translation
@@ -318,16 +387,15 @@ public actor LiveTranslationService {
     // MARK: - Private Methods
 
     private func setupCallbacks(sourceLanguage: SupportedLanguage, targetLanguage: SupportedLanguage) async {
-        // Handle translated text
+        // Handle translated text (streaming)
         await geminiService.setOnTranslation { [weak self] text, language in
-            let item = TranscriptItem(
-                speaker: .speaker1,
-                sourceLanguage: sourceLanguage,
-                targetLanguage: targetLanguage,
-                originalText: "", // We don't have the original in real-time mode
-                translatedText: text
-            )
-            self?.onTranscript?(item)
+            guard let self = self else { return }
+
+            // Append to streaming buffer
+            self.currentStreamingText += text
+
+            // Emit streaming text for real-time display
+            self.onStreamingText?(self.currentStreamingText)
         }
 
         // Handle audio output
@@ -339,18 +407,39 @@ public actor LiveTranslationService {
 
         // Handle errors
         await geminiService.setOnError { [weak self] error in
+            print("[LiveTranslation] Error: \(error)")
             self?.onError?(error)
         }
 
         // Handle state changes
         await geminiService.setOnStateChange { [weak self] state in
+            guard let self = self else { return }
+
             switch state {
-            case .ready, .listening:
-                self?.onStateChange?(.active)
+            case .ready:
+                // Turn complete - finalize the streaming text
+                if !self.currentStreamingText.isEmpty {
+                    let item = TranscriptItem(
+                        speaker: .speaker1,
+                        sourceLanguage: sourceLanguage,
+                        targetLanguage: targetLanguage,
+                        originalText: "", // Gemini Live doesn't provide original
+                        translatedText: self.currentStreamingText
+                    )
+                    self.onTranscript?(item)
+                    self.currentStreamingText = ""
+                }
+                self.onStateChange?(.active)
+
+            case .listening:
+                self.onStateChange?(.active)
+
             case .processing, .speaking:
-                self?.onStateChange?(.processing)
+                self.onStateChange?(.processing)
+
             case .error(let message):
-                self?.onError?(LiveLingoError.sttNotAvailable(reason: message))
+                self.onError?(LiveLingoError.sttNotAvailable(reason: message))
+
             default:
                 break
             }
@@ -358,25 +447,6 @@ public actor LiveTranslationService {
     }
 }
 
-// MARK: - Callback Setters for GeminiLiveService
-
-extension GeminiLiveService {
-    func setOnTranslation(_ callback: (@Sendable (String, SupportedLanguage) -> Void)?) async {
-        self.onTranslation = callback
-    }
-
-    func setOnAudioOutput(_ callback: (@Sendable (Data) -> Void)?) async {
-        self.onAudioOutput = callback
-    }
-
-    func setOnError(_ callback: (@Sendable (Error) -> Void)?) async {
-        self.onError = callback
-    }
-
-    func setOnStateChange(_ callback: (@Sendable (GeminiLiveState) -> Void)?) async {
-        self.onStateChange = callback
-    }
-}
 
 // MARK: - Live Translation State
 
