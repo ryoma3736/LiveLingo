@@ -68,11 +68,12 @@ final class StreamingTranslationTests: XCTestCase {
     // MARK: - Message Encoding Tests
 
     func testRealtimeInputMessageEncoding() throws {
-        let chunk = MediaChunk(
+        // Use AudioBlob instead of deprecated MediaChunk
+        let audioBlob = AudioBlob(
             mimeType: "audio/pcm;rate=16000",
             data: "base64encodedaudio"
         )
-        let input = RealtimeInput(mediaChunks: [chunk])
+        let input = RealtimeInput(audio: audioBlob)
         let message = RealtimeInputMessage(realtimeInput: input)
 
         let encoder = JSONEncoder()
@@ -80,7 +81,7 @@ final class StreamingTranslationTests: XCTestCase {
         let json = String(data: data, encoding: .utf8)!
 
         XCTAssertTrue(json.contains("realtimeInput"))
-        XCTAssertTrue(json.contains("mediaChunks"))
+        XCTAssertTrue(json.contains("audio"))  // NOT mediaChunks
         XCTAssertTrue(json.contains("mimeType"))
     }
 
@@ -96,7 +97,7 @@ final class StreamingTranslationTests: XCTestCase {
         let setup = SetupConfig(
             model: "models/gemini-2.0-flash-live-001",
             generationConfig: genConfig,
-            systemInstruction: SystemInstruction(text: "You are a translator"),
+            systemInstruction: SystemInstruction(text: "You are a translator"),  // Content object
             tools: nil
         )
         let message = SetupMessage(setup: setup)

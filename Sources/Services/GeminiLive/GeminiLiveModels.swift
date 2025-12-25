@@ -114,7 +114,7 @@ public struct SetupMessage: Codable, Sendable {
 public struct SetupConfig: Codable, Sendable {
     public let model: String
     public let generationConfig: ClientGenerationConfig?
-    public let systemInstruction: SystemInstruction?
+    public let systemInstruction: SystemInstruction?  // Content object with parts array
     public let tools: [Tool]?
 
     public init(
@@ -182,19 +182,19 @@ public struct RealtimeInputMessage: Codable, Sendable {
     public init(realtimeInput: RealtimeInput) {
         self.realtimeInput = realtimeInput
     }
-    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct RealtimeInput: Codable, Sendable {
-    public let mediaChunks: [MediaChunk]
+    // NOTE: "mediaChunks" is DEPRECATED - use "audio" instead
+    public let audio: AudioBlob?
 
-    public init(mediaChunks: [MediaChunk]) {
-        self.mediaChunks = mediaChunks
+    public init(audio: AudioBlob) {
+        self.audio = audio
     }
-    // No CodingKeys needed - Swift property names are already camelCase
 }
 
-public struct MediaChunk: Codable, Sendable {
+/// Audio data blob for realtime input
+public struct AudioBlob: Codable, Sendable {
     public let mimeType: String
     public let data: String // Base64 encoded
 
@@ -202,7 +202,17 @@ public struct MediaChunk: Codable, Sendable {
         self.mimeType = mimeType
         self.data = data
     }
-    // No CodingKeys needed - Swift property names are already camelCase
+}
+
+// DEPRECATED: Keep for backward compatibility but don't use
+public struct MediaChunk: Codable, Sendable {
+    public let mimeType: String
+    public let data: String
+
+    public init(mimeType: String = "audio/pcm;rate=16000", data: String) {
+        self.mimeType = mimeType
+        self.data = data
+    }
 }
 
 /// Client content message (text or end of turn)

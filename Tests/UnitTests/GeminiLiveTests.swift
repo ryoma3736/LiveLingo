@@ -71,9 +71,9 @@ final class GeminiLiveTests: XCTestCase {
         let setup = SetupConfig(
             model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
             generationConfig: ClientGenerationConfig(
-                responseModalities: ["AUDIO", "TEXT"]
+                responseModalities: ["AUDIO"]  // AUDIO only for native-audio model
             ),
-            systemInstruction: SystemInstruction(text: "You are a translator")
+            systemInstruction: SystemInstruction(text: "You are a translator")  // Content object
         )
 
         let message = SetupMessage(setup: setup)
@@ -91,11 +91,10 @@ final class GeminiLiveTests: XCTestCase {
         let audioData = Data([0x00, 0x01, 0x02, 0x03])
         let base64 = audioData.base64EncodedString()
 
+        // Use AudioBlob instead of deprecated MediaChunk
         let message = RealtimeInputMessage(
             realtimeInput: RealtimeInput(
-                mediaChunks: [
-                    MediaChunk(data: base64)
-                ]
+                audio: AudioBlob(data: base64)
             )
         )
 
@@ -104,8 +103,8 @@ final class GeminiLiveTests: XCTestCase {
         let json = String(data: data, encoding: .utf8)!
 
         XCTAssertTrue(json.contains("realtimeInput"))
-        XCTAssertTrue(json.contains("mediaChunks"))
-        XCTAssertTrue(json.contains("audio") && json.contains("pcm"))
+        XCTAssertTrue(json.contains("audio"))  // NOT mediaChunks
+        XCTAssertTrue(json.contains("pcm"))
     }
 
     func testClientContentMessageEncoding() throws {

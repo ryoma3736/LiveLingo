@@ -117,13 +117,16 @@ public struct ConversationView: View {
                             // Streaming mode: show live translation
                             if !viewModel.currentTranslationText.isEmpty {
                                 liveTranslationBubble
+                                    .id("live-translation")
                             } else {
                                 listeningIndicator
+                                    .id("listening")
                             }
                         } else {
                             // Batch mode: show recognition text
                             if !viewModel.currentRecognitionText.isEmpty {
                                 liveRecognitionBubble
+                                    .id("live-recognition")
                             }
                         }
                     }
@@ -134,6 +137,24 @@ public struct ConversationView: View {
                 withAnimation {
                     if let lastItem = viewModel.transcripts.last {
                         proxy.scrollTo(lastItem.id, anchor: .bottom)
+                    }
+                }
+            }
+            .onChange(of: viewModel.currentTranslationText) { _, newValue in
+                // Auto-scroll when streaming translation updates
+                withAnimation {
+                    if !newValue.isEmpty {
+                        proxy.scrollTo("live-translation", anchor: .bottom)
+                    } else if let lastItem = viewModel.transcripts.last {
+                        proxy.scrollTo(lastItem.id, anchor: .bottom)
+                    }
+                }
+            }
+            .onChange(of: viewModel.isRecognizing) { _, isRecording in
+                // Scroll to bottom when recording starts
+                if isRecording {
+                    withAnimation {
+                        proxy.scrollTo("listening", anchor: .bottom)
                     }
                 }
             }

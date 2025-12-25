@@ -199,20 +199,28 @@ public actor GeminiAudioStreamer {
 
         print("[AudioStreamer] Playing \(dataToPlay.count) bytes of audio")
 
-        // Create audio buffer from data
-        guard let pcmBuffer = dataToBuffer(dataToPlay, format: outputFormat) else {
+        // Create audio buffer from Gemini data (24kHz mono)
+        guard let sourceBuffer = dataToBuffer(dataToPlay, format: outputFormat) else {
             print("[AudioStreamer] Failed to create PCM buffer")
             return
         }
 
         // Setup playback engine if needed (separate from capture engine)
         if audioPlayer == nil {
-            print("[AudioStreamer] Setting up playback engine (24kHz)")
+            print("[AudioStreamer] Setting up playback engine")
             audioPlayer = AVAudioPlayerNode()
             let engine = AVAudioEngine()
 
             engine.attach(audioPlayer!)
-            engine.connect(audioPlayer!, to: engine.mainMixerNode, format: outputFormat)
+
+            // Get mixer format (device native format - usually 44.1kHz or 48kHz stereo)
+            let mixerFormat = engine.mainMixerNode.outputFormat(forBus: 0)
+            print("[AudioStreamer] Mixer format: \(mixerFormat.sampleRate)Hz, \(mixerFormat.channelCount) channels")
+            print("[AudioStreamer] Source format: \(outputFormat.sampleRate)Hz, \(outputFormat.channelCount) channels")
+
+            // Connect player to mixer with mixer's format (not source format)
+            // This tells the player what format to output
+            engine.connect(audioPlayer!, to: engine.mainMixerNode, format: mixerFormat)
 
             do {
                 try engine.start()
@@ -225,14 +233,111 @@ public actor GeminiAudioStreamer {
             self.playbackEngine = engine
         }
 
-        // Schedule buffer for continuous playback
-        audioPlayer?.scheduleBuffer(pcmBuffer, completionHandler: nil)
+        // Convert source buffer (24kHz mono) to mixer format (e.g., 48kHz stereo)
+        guard let mixerFormat = playbackEngine?.mainMixerNode.outputFormat(forBus: 0),
+              let convertedBuffer = convertBufferForPlayback(sourceBuffer, to: mixerFormat) else {
+            print("[AudioStreamer] Failed to convert buffer for playback")
+            return
+        }
+
+        // Schedule converted buffer for playback
+        audioPlayer?.scheduleBuffer(convertedBuffer, completionHandler: nil)
 
         if !isPlaying {
             audioPlayer?.play()
             isPlaying = true
             print("[AudioStreamer] Started playback")
         }
+    }
+
+    /// Convert audio buffer from source format to target format for playback
+    /// Handles: Int16 mono 24kHz → Float32 stereo 48kHz (typical iOS device format)
+    private func convertBufferForPlayback(_ sourceBuffer: AVAudioPCMBuffer, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
+        print("[AudioStreamer] Converting from \(sourceBuffer.format) to \(targetFormat)")
+
+        // If formats match exactly, no conversion needed
+        if sourceBuffer.format.sampleRate == targetFormat.sampleRate &&
+           sourceBuffer.format.channelCount == targetFormat.channelCount &&
+           sourceBuffer.format.commonFormat == targetFormat.commonFormat {
+            return sourceBuffer
+        }
+
+        // Step 1: Create intermediate Float32 mono format for cleaner conversion
+        guard let float32MonoFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: sourceBuffer.format.sampleRate,
+            channels: 1,
+            interleaved: false
+        ) else {
+            print("[AudioStreamer] Failed to create intermediate format")
+            return nil
+        }
+
+        // Step 2: Convert Int16 mono → Float32 mono
+        guard let float32Converter = AVAudioConverter(from: sourceBuffer.format, to: float32MonoFormat) else {
+            print("[AudioStreamer] Failed to create Int16→Float32 converter")
+            return nil
+        }
+
+        guard let float32Buffer = AVAudioPCMBuffer(pcmFormat: float32MonoFormat, frameCapacity: sourceBuffer.frameLength) else {
+            print("[AudioStreamer] Failed to create float32 buffer")
+            return nil
+        }
+
+        var error1: NSError?
+        var inputConsumed1 = false
+        let status1 = float32Converter.convert(to: float32Buffer, error: &error1) { _, outStatus in
+            if inputConsumed1 {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            inputConsumed1 = true
+            outStatus.pointee = .haveData
+            return sourceBuffer
+        }
+
+        if status1 == .error || error1 != nil {
+            print("[AudioStreamer] Int16→Float32 conversion failed: \(error1?.localizedDescription ?? "unknown")")
+            return nil
+        }
+
+        print("[AudioStreamer] Step 1: Int16→Float32 done, frames: \(float32Buffer.frameLength)")
+
+        // Step 3: Convert Float32 mono → Target format (Float32 stereo at device sample rate)
+        guard let finalConverter = AVAudioConverter(from: float32MonoFormat, to: targetFormat) else {
+            print("[AudioStreamer] Failed to create Float32→Target converter")
+            return nil
+        }
+
+        // Calculate output frame count based on sample rate ratio
+        let sampleRateRatio = targetFormat.sampleRate / float32MonoFormat.sampleRate
+        let outputFrameCount = AVAudioFrameCount(Double(float32Buffer.frameLength) * sampleRateRatio)
+
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: outputFrameCount) else {
+            print("[AudioStreamer] Failed to create output buffer")
+            return nil
+        }
+
+        var error2: NSError?
+        var inputConsumed2 = false
+        let status2 = finalConverter.convert(to: outputBuffer, error: &error2) { _, outStatus in
+            if inputConsumed2 {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            inputConsumed2 = true
+            outStatus.pointee = .haveData
+            return float32Buffer
+        }
+
+        if status2 == .error || error2 != nil {
+            print("[AudioStreamer] Float32→Target conversion failed: \(error2?.localizedDescription ?? "unknown")")
+            return nil
+        }
+
+        print("[AudioStreamer] Step 2: Float32→Target done, frames: \(outputBuffer.frameLength)")
+        print("[AudioStreamer] Final conversion: \(sourceBuffer.frameLength) frames → \(outputBuffer.frameLength) frames")
+        return outputBuffer
     }
 
     // MARK: - Format Conversion Helpers
@@ -291,6 +396,7 @@ public actor GeminiAudioStreamer {
 public actor LiveTranslationService {
     private let geminiService: GeminiLiveService
     private let audioStreamer: GeminiAudioStreamer
+    private let audioSessionManager: AudioSessionManager
     private let keychain: KeychainManagerProtocol
 
     private var isActive = false
@@ -308,6 +414,7 @@ public actor LiveTranslationService {
     public init(keychain: KeychainManagerProtocol = KeychainManager.shared) {
         self.geminiService = GeminiLiveService()
         self.audioStreamer = GeminiAudioStreamer()
+        self.audioSessionManager = AudioSessionManager()
         self.keychain = keychain
     }
 
@@ -346,6 +453,13 @@ public actor LiveTranslationService {
             bidirectional: bidirectional
         )
 
+        // IMPORTANT: Configure audio session for simultaneous capture and playback
+        // This is required for continuous conversation mode
+        print("[LiveTranslation] Configuring audio session for conversation mode...")
+        try await audioSessionManager.configure(for: .conversation)
+        try await audioSessionManager.activate()
+        print("[LiveTranslation] Audio session configured: .playAndRecord with .voiceChat mode")
+
         // Setup callbacks
         await setupCallbacks(sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
 
@@ -356,7 +470,16 @@ public actor LiveTranslationService {
         try await audioStreamer.startCapture(
             onAudioData: { [weak self] data in
                 Task {
-                    try? await self?.geminiService.sendAudio(data)
+                    do {
+                        try await self?.geminiService.sendAudio(data)
+                    } catch {
+                        // Log errors instead of silently ignoring
+                        print("[LiveTranslation] Audio send error: \(error.localizedDescription)")
+                        // Notify error callback for severe errors
+                        if case LiveLingoError.geminiNotConnected = error {
+                            self?.onError?(error)
+                        }
+                    }
                 }
             },
             onAudioLevel: { [weak self] level in
@@ -377,6 +500,14 @@ public actor LiveTranslationService {
         await audioStreamer.stopCapture()
         await audioStreamer.stopPlayback()
         await geminiService.disconnect()
+
+        // Deactivate audio session
+        do {
+            try await audioSessionManager.deactivate()
+            print("[LiveTranslation] Audio session deactivated")
+        } catch {
+            print("[LiveTranslation] Failed to deactivate audio session: \(error)")
+        }
 
         isActive = false
         currentStreamingText = ""
@@ -406,8 +537,14 @@ public actor LiveTranslationService {
 
         // Handle audio output
         await geminiService.setOnAudioOutput { [weak self] data in
+            print("[LiveTranslation] Received audio from Gemini: \(data.count) bytes")
             Task {
-                try? await self?.audioStreamer.playAudio(data)
+                do {
+                    try await self?.audioStreamer.playAudio(data)
+                    print("[LiveTranslation] Audio queued for playback")
+                } catch {
+                    print("[LiveTranslation] Audio playback error: \(error)")
+                }
             }
         }
 
@@ -434,8 +571,15 @@ public actor LiveTranslationService {
     private func handleStateChange(_ state: GeminiLiveState, sourceLanguage: SupportedLanguage, targetLanguage: SupportedLanguage) {
         switch state {
         case .ready:
-            // Turn complete - finalize the streaming text
+            // Initial ready state after setup
+            print("[LiveTranslation] Ready state - session initialized")
+            onStateChange?(.active)
+
+        case .listening:
+            // Listening state - either initial or after turn complete
+            // Finalize any streaming text if present (turn complete scenario)
             if !currentStreamingText.isEmpty {
+                print("[LiveTranslation] Finalizing streaming text: \(currentStreamingText.prefix(50))...")
                 let item = TranscriptItem(
                     speaker: .speaker1,
                     sourceLanguage: sourceLanguage,
@@ -445,16 +589,25 @@ public actor LiveTranslationService {
                 )
                 onTranscript?(item)
                 currentStreamingText = ""
-            }
-            onStateChange?(.active)
 
-        case .listening:
+                // Flush any remaining audio in the buffer
+                Task { [weak self] in
+                    do {
+                        try await self?.audioStreamer.flushAudio()
+                        print("[LiveTranslation] Audio buffer flushed")
+                    } catch {
+                        print("[LiveTranslation] Failed to flush audio: \(error)")
+                    }
+                }
+            }
+            print("[LiveTranslation] Listening for input - continuous conversation active")
             onStateChange?(.active)
 
         case .processing, .speaking:
             onStateChange?(.processing)
 
         case .error(let message):
+            print("[LiveTranslation] Error state: \(message)")
             onError?(LiveLingoError.sttNotAvailable(reason: message))
 
         default:

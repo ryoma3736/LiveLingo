@@ -383,14 +383,13 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
         // Convert to base64
         let base64Audio = data.base64EncodedString()
 
+        // NOTE: Use "audio" field, NOT deprecated "mediaChunks"
         let message = RealtimeInputMessage(
             realtimeInput: RealtimeInput(
-                mediaChunks: [
-                    MediaChunk(
-                        mimeType: GeminiAudioFormat.inputMimeType,
-                        data: base64Audio
-                    )
-                ]
+                audio: AudioBlob(
+                    mimeType: GeminiAudioFormat.inputMimeType,
+                    data: base64Audio
+                )
             )
         )
 
@@ -442,19 +441,17 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
         await updateState(.setupPending)
         print("[GeminiLive] Sending setup message...")
 
-        let voiceConfig = VoiceConfig(
-            prebuiltVoiceConfig: PrebuiltVoiceConfig(voiceName: "Aoede")
-        )
-
+        // NOTE: gemini-2.5-flash-native-audio model only supports AUDIO modality
+        // TEXT and speechConfig cause "invalid argument" errors
         let generationConfig = ClientGenerationConfig(
-            responseModalities: config.responseModalities.map { $0.rawValue },
-            speechConfig: SpeechConfig(voiceConfig: voiceConfig)
+            responseModalities: ["AUDIO"],  // AUDIO only - TEXT not supported
+            speechConfig: nil  // Use default voice - custom speechConfig causes errors
         )
 
         let setup = SetupConfig(
             model: config.model.rawValue,
             generationConfig: generationConfig,
-            systemInstruction: SystemInstruction(text: translationMode.systemInstruction),
+            systemInstruction: SystemInstruction(text: translationMode.systemInstruction),  // Content object with parts
             tools: nil
         )
 
@@ -545,6 +542,7 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
 
         // Check if interrupted
         if content.interrupted == true {
+            print("[GeminiLive] Turn interrupted - resuming listening mode")
             await updateState(.listening)
             return
         }
@@ -566,9 +564,12 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
             }
         }
 
-        // Check if turn is complete
+        // Check if turn is complete - IMPORTANT: Go back to listening for continuous conversation
         if content.turnComplete == true {
-            await updateState(.ready)
+            print("[GeminiLive] Turn complete - returning to listening mode for continuous conversation")
+            // NOTE: Use .listening instead of .ready to indicate we're actively waiting for input
+            // This ensures the UI shows we're ready for more input
+            await updateState(.listening)
         }
     }
 
@@ -580,6 +581,7 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
     }
 
     private func handleAudioOutput(_ data: Data) async {
+        print("[GeminiLive] Received audio output: \(data.count) bytes")
         await updateState(.speaking)
         _onAudioOutput?(data)
     }
