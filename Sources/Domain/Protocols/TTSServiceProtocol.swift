@@ -15,23 +15,32 @@ public protocol TTSServiceProtocol: Sendable {
     ///   - text: The text to synthesize
     ///   - voice: The voice to use
     /// - Returns: An async stream of audio chunks
-    func streamSynthesize(_ text: String, voice: VoiceOption) -> AsyncThrowingStream<Data, Error>
+    func streamSynthesize(_ text: String, voice: VoiceOption) async -> AsyncThrowingStream<Data, Error>
 
     /// Play synthesized audio
     /// - Parameter data: The audio data to play
     func play(_ data: Data) async throws
 
+    /// Speak text directly (for system TTS like AVSpeechSynthesizer)
+    /// - Parameters:
+    ///   - text: The text to speak
+    ///   - voice: The voice to use
+    func speak(_ text: String, voice: VoiceOption) async throws
+
+    /// Get the default voice for a language
+    func defaultVoice(for language: SupportedLanguage) async -> VoiceOption?
+
     /// Stop playback
-    func stopPlayback()
+    func stopPlayback() async
 
     /// Available voices for a language
-    func availableVoices(for language: SupportedLanguage) -> [VoiceOption]
+    func availableVoices(for language: SupportedLanguage) async -> [VoiceOption]
 
     /// The provider type for this service
     var provider: VoiceProvider { get }
 
     /// Check if currently speaking
-    var isSpeaking: Bool { get }
+    var isSpeaking: Bool { get async }
 }
 
 /// Protocol for Audio Queue Management

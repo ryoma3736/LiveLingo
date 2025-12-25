@@ -71,10 +71,10 @@ public actor MockTranslationService: TranslationServiceProtocol {
         )
     }
 
-    public func streamTranslate(_ text: String, from: SupportedLanguage, to: SupportedLanguage) -> AsyncThrowingStream<String, Error> {
+    public func streamTranslate(_ text: String, from: SupportedLanguage, to: SupportedLanguage) async -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             Task {
-                let result = try? await translate(text, from: from, to: to)
+                let result = try? await self.translate(text, from: from, to: to)
                 if let translated = result?.translatedText {
                     continuation.yield(translated)
                 }
@@ -83,7 +83,7 @@ public actor MockTranslationService: TranslationServiceProtocol {
         }
     }
 
-    public func isAvailable(from: SupportedLanguage, to: SupportedLanguage) -> Bool {
+    public func isAvailable(from: SupportedLanguage, to: SupportedLanguage) async -> Bool {
         return true
     }
 
@@ -111,7 +111,7 @@ public actor MockTTSService: TTSServiceProtocol {
         return Data()
     }
 
-    public func streamSynthesize(_ text: String, voice: VoiceOption) -> AsyncThrowingStream<Data, Error> {
+    public func streamSynthesize(_ text: String, voice: VoiceOption) async -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             continuation.yield(Data())
             continuation.finish()
@@ -124,11 +124,29 @@ public actor MockTTSService: TTSServiceProtocol {
         isSpeaking = false
     }
 
-    public func stopPlayback() {
+    public func speak(_ text: String, voice: VoiceOption) async throws {
+        isSpeaking = true
+        // Simulate speaking time based on text length
+        let duration = UInt64(max(500_000_000, text.count * 50_000_000))
+        try? await Task.sleep(nanoseconds: duration)
         isSpeaking = false
     }
 
-    public func availableVoices(for language: SupportedLanguage) -> [VoiceOption] {
+    public func defaultVoice(for language: SupportedLanguage) async -> VoiceOption? {
+        return VoiceOption(
+            id: "mock-default-\(language.languageCode)",
+            name: "Mock Default Voice",
+            language: language,
+            provider: .system,
+            isDefault: true
+        )
+    }
+
+    public func stopPlayback() async {
+        isSpeaking = false
+    }
+
+    public func availableVoices(for language: SupportedLanguage) async -> [VoiceOption] {
         return [
             VoiceOption(
                 id: "mock-voice-\(language.languageCode)",

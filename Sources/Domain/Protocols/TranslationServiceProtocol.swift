@@ -16,10 +16,10 @@ public protocol TranslationServiceProtocol: Sendable {
     ///   - from: Source language
     ///   - to: Target language
     /// - Returns: An async stream of partial translations
-    func streamTranslate(_ text: String, from: SupportedLanguage, to: SupportedLanguage) -> AsyncThrowingStream<String, Error>
+    func streamTranslate(_ text: String, from: SupportedLanguage, to: SupportedLanguage) async -> AsyncThrowingStream<String, Error>
 
     /// Check if translation is available for a language pair
-    func isAvailable(from: SupportedLanguage, to: SupportedLanguage) -> Bool
+    func isAvailable(from: SupportedLanguage, to: SupportedLanguage) async -> Bool
 
     /// The provider type for this service
     var provider: TranslationProvider { get }

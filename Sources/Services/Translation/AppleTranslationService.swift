@@ -1,6 +1,12 @@
 import Foundation
 import NaturalLanguage
 
+// MARK: - Gemini API Configuration (iOS 16 compatibility)
+
+private enum GeminiConfig {
+    static let apiKey = "AIzaSyBG9AiW1hcAPyN0b1PbTLRqAjH-Ri9hZPE"
+}
+
 // MARK: - Apple Translation Service
 
 /// Apple's on-device translation service
@@ -96,20 +102,112 @@ public actor AppleTranslationService: TranslationServiceProtocol {
         from sourceLanguage: SupportedLanguage,
         to targetLanguage: SupportedLanguage
     ) async throws -> String {
-        // In a real implementation, this would use MLTranslationSession
-        // For now, we'll throw an error indicating the need for actual implementation
-        #if targetEnvironment(simulator)
-        // Return mock translation in simulator
-        return "[Translated: \(text)]"
-        #else
-        throw LiveLingoError.translationFailed(
-            underlying: NSError(
-                domain: "AppleTranslation",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Translation API requires iOS 17.4+"]
-            )
+        // Use Gemini API for translation (iOS 16 compatible)
+        // Apple Translation API requires iOS 17.4+
+        return try await performGeminiTranslation(
+            text: text,
+            from: sourceLanguage,
+            to: targetLanguage
         )
-        #endif
+    }
+
+    private func performGeminiTranslation(
+        text: String,
+        from sourceLanguage: SupportedLanguage,
+        to targetLanguage: SupportedLanguage
+    ) async throws -> String {
+        let apiKey = GeminiConfig.apiKey
+        guard !apiKey.isEmpty && apiKey != "YOUR_API_KEY_HERE" else {
+            throw LiveLingoError.apiKeyMissing(service: "Gemini")
+        }
+
+        // Use gemini-3-flash-preview (latest - December 2025)
+        let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
+        guard let url = URL(string: "\(baseURL)?key=\(apiKey)") else {
+            throw LiveLingoError.translationFailed(underlying: NSError(domain: "GeminiTranslation", code: -1, userInfo: nil))
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
+
+        let prompt = """
+        Translate the following text from \(sourceLanguage.nativeName) to \(targetLanguage.nativeName).
+        Return ONLY the translated text, nothing else. No explanations, no quotes, just the translation.
+
+        Text to translate:
+        \(text)
+        """
+
+        // Correct Gemini API request format
+        let requestBody: [String: Any] = [
+            "contents": [
+                [
+                    "parts": [
+                        ["text": prompt]
+                    ]
+                ]
+            ],
+            "generationConfig": [
+                "temperature": 0.3,
+                "maxOutputTokens": 1024
+            ]
+        ]
+
+        // Debug: print the request body
+        if let jsonData = try? JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("[Translation] Request body: \(jsonString.prefix(300))")
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        print("[Translation] Calling Gemini API...")
+        print("[Translation] Request URL: \(url)")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw LiveLingoError.translationFailed(underlying: NSError(
+                domain: "GeminiTranslation",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No HTTP response"]
+            ))
+        }
+
+        // Log the response for debugging
+        let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode"
+        print("[Translation] Status: \(httpResponse.statusCode)")
+        print("[Translation] Response: \(responseString.prefix(500))")
+
+        guard httpResponse.statusCode == 200 else {
+            print("[Translation] API Error: \(httpResponse.statusCode) - \(responseString)")
+            throw LiveLingoError.translationFailed(underlying: NSError(
+                domain: "GeminiTranslation",
+                code: httpResponse.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: "API error: \(httpResponse.statusCode) - \(responseString.prefix(200))"]
+            ))
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let candidates = json["candidates"] as? [[String: Any]],
+              let firstCandidate = candidates.first,
+              let content = firstCandidate["content"] as? [String: Any],
+              let parts = content["parts"] as? [[String: Any]],
+              let firstPart = parts.first,
+              let translatedText = firstPart["text"] as? String else {
+            print("[Translation] Failed to parse response")
+            throw LiveLingoError.translationFailed(underlying: NSError(
+                domain: "GeminiTranslation",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"]
+            ))
+        }
+
+        let result = translatedText.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        print("[Translation] Success: \(result.prefix(50))...")
+        return result
     }
 
     private func calculateConfidence(original: String, translated: String) -> Float {

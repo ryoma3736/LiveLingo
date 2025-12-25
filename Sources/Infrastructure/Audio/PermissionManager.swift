@@ -1,6 +1,9 @@
 import AVFoundation
 import Speech
 import UserNotifications
+#if os(iOS)
+import UIKit
+#endif
 
 // MARK: - Permission Manager Protocol
 

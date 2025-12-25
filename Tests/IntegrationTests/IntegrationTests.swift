@@ -185,6 +185,68 @@ final class IntegrationTests: XCTestCase {
     }
 }
 
+// MARK: - TTS Service Tests
+
+@MainActor
+final class TTSServiceIntegrationTests: XCTestCase {
+
+    func testAppleTTSServiceInitialization() async throws {
+        let service = AppleTTSService()
+        XCTAssertEqual(service.provider, .system)
+        XCTAssertFalse(service.isSpeaking)
+        print("[TEST] AppleTTSService initialized successfully")
+    }
+
+    func testAvailableVoicesForEnglish() async throws {
+        let service = AppleTTSService()
+        let voices = await service.availableVoices(for: .englishUS)
+        print("[TEST] Available English voices: \(voices.count)")
+        XCTAssertGreaterThan(voices.count, 0, "Should have at least one English voice")
+        for voice in voices.prefix(3) {
+            print("[TEST]   - \(voice.name) (\(voice.id))")
+        }
+    }
+
+    func testDefaultVoiceForEnglish() async throws {
+        let service = AppleTTSService()
+        let voice = await service.defaultVoice(for: .englishUS)
+        XCTAssertNotNil(voice, "Should have a default English voice")
+        print("[TEST] Default English voice: \(voice?.name ?? "nil")")
+    }
+
+    func testSpeakMethodDoesNotCrash() async throws {
+        let service = AppleTTSService()
+        guard let voice = await service.defaultVoice(for: .englishUS) else {
+            XCTFail("No default voice available")
+            return
+        }
+
+        print("[TEST] Testing speak() with voice: \(voice.name)")
+
+        // This should complete without throwing (audio won't actually play in test)
+        do {
+            try await service.speak("Hello world", voice: voice)
+            print("[TEST] speak() completed successfully")
+        } catch {
+            print("[TEST] speak() error: \(error)")
+            // Don't fail - audio may not work in test environment
+        }
+    }
+
+    func testSpeakEmptyTextSkips() async throws {
+        let service = AppleTTSService()
+        guard let voice = await service.defaultVoice(for: .englishUS) else {
+            XCTFail("No default voice available")
+            return
+        }
+
+        // Empty text should return immediately without error
+        try await service.speak("", voice: voice)
+        try await service.speak("   ", voice: voice)
+        print("[TEST] Empty text handling works correctly")
+    }
+}
+
 // MARK: - Performance Tests
 
 final class PerformanceTests: XCTestCase {

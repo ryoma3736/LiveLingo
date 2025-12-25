@@ -11,13 +11,13 @@ public protocol STTServiceProtocol: Sendable {
     func stopRecognition() async
 
     /// Check if speech recognition is available
-    var isAvailable: Bool { get }
+    var isAvailable: Bool { get async }
 
     /// Check if currently recognizing
-    var isRecognizing: Bool { get }
+    var isRecognizing: Bool { get async }
 
     /// Supported languages for this STT service
-    var supportedLanguages: [SupportedLanguage] { get }
+    var supportedLanguages: [SupportedLanguage] { get async }
 }
 
 /// Protocol for Voice Activity Detection

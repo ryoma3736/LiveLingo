@@ -96,7 +96,7 @@ public struct NetworkResponse<T: Sendable>: Sendable {
 public protocol NetworkClientProtocol: Sendable {
     func send(_ request: NetworkRequest) async throws -> NetworkResponse<Data>
     func send<T: Decodable & Sendable>(_ request: NetworkRequest, decoder: JSONDecoder) async throws -> NetworkResponse<T>
-    func stream(_ request: NetworkRequest) -> AsyncThrowingStream<Data, Error>
+    func stream(_ request: NetworkRequest) async -> AsyncThrowingStream<Data, Error>
 }
 
 // MARK: - Network Client Implementation
@@ -171,7 +171,7 @@ public actor NetworkClient: NetworkClientProtocol {
                 headers: response.headers
             )
         } catch {
-            throw LiveLingoError.networkDecodingFailed(type: String(describing: T.self))
+            throw LiveLingoError.networkDecodingFailed(underlying: error)
         }
     }
 
@@ -226,7 +226,7 @@ public actor NetworkClient: NetworkClientProtocol {
         components.queryItems = request.queryItems
 
         guard let url = components.url else {
-            throw LiveLingoError.networkInvalidURL(url: request.path)
+            throw LiveLingoError.networkInvalidURL
         }
 
         var urlRequest = URLRequest(url: url)
@@ -254,9 +254,9 @@ public actor NetworkClient: NetworkClientProtocol {
         case 401:
             throw LiveLingoError.authenticationRequired
         case 403:
-            throw LiveLingoError.authorizationFailed(reason: "Access forbidden")
+            throw LiveLingoError.authorizationFailed(underlying: NSError(domain: "NetworkClient", code: 403, userInfo: [NSLocalizedDescriptionKey: "Access forbidden"]))
         case 429:
-            throw LiveLingoError.networkRateLimited(retryAfter: extractRetryAfter(from: response))
+            throw LiveLingoError.networkRateLimited
         case 400..<500:
             let message = String(data: data, encoding: .utf8) ?? "Client error"
             throw LiveLingoError.networkRequestFailed(statusCode: response.statusCode, message: message)

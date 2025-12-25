@@ -37,6 +37,11 @@ public struct User: Codable, Sendable, Identifiable, Equatable {
         self.isAnonymous = isAnonymous
         self.createdAt = createdAt
     }
+
+    // Equality based on ID only (like database entities)
+    public static func == (lhs: User, rhs: User) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 // MARK: - Authentication Provider

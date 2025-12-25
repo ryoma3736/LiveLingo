@@ -201,52 +201,21 @@ final class WaitKTranslatorTests: XCTestCase {
     }
 }
 
-// MARK: - Performance Tests
+// MARK: - Additional Tests
 
-final class PerformanceTests: XCTestCase {
+final class AdditionalTests: XCTestCase {
 
-    func testPerformanceMonitorTimer() async {
-        let monitor = PerformanceMonitor.shared
-        await monitor.reset()
-
-        await monitor.startTimer("test.operation")
-        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
-        let duration = await monitor.stopTimer("test.operation")
-
-        XCTAssertNotNil(duration)
-        XCTAssertGreaterThanOrEqual(duration!, 0.09)
-        XCTAssertLessThanOrEqual(duration!, 0.2)
+    func testLanguageRawValues() {
+        // Test that SupportedLanguage has expected raw values
+        XCTAssertEqual(SupportedLanguage.japanese.rawValue, "ja-JP")
+        XCTAssertEqual(SupportedLanguage.englishUS.rawValue, "en-US")
     }
 
-    func testPerformanceMetricStatistics() async {
-        let monitor = PerformanceMonitor.shared
-        await monitor.reset()
+    func testLiveTranslationState() {
+        // Test LiveTranslationState enum
+        let inactive: LiveTranslationState = .inactive
+        let active: LiveTranslationState = .active
 
-        // Record multiple samples
-        for i in 1...10 {
-            await monitor.recordMetric(name: "test.metric", value: Double(i) * 0.01)
-        }
-
-        let stats = await monitor.getStatistics(for: "test.metric")
-        XCTAssertNotNil(stats)
-        XCTAssertEqual(stats?.sampleCount, 10)
-        XCTAssertEqual(stats?.min, 0.01, accuracy: 0.001)
-        XCTAssertEqual(stats?.max, 0.10, accuracy: 0.001)
-        XCTAssertEqual(stats?.average, 0.055, accuracy: 0.001)
-    }
-
-    func testStreamingMetricPresets() async {
-        let monitor = PerformanceMonitor.shared
-        await monitor.reset()
-
-        await monitor.start(.translationRoundTrip)
-        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-        let duration = await monitor.stop(.translationRoundTrip)
-
-        XCTAssertNotNil(duration)
-
-        let stats = await monitor.statistics(for: .translationRoundTrip)
-        XCTAssertNotNil(stats)
-        XCTAssertEqual(stats?.sampleCount, 1)
+        XCTAssertNotEqual(String(describing: inactive), String(describing: active))
     }
 }

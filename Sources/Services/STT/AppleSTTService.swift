@@ -31,13 +31,18 @@ public actor AppleSTTService: STTServiceProtocol {
     // MARK: - Recognition
 
     public func startRecognition(language: SupportedLanguage) async throws -> AsyncStream<RecognitionResult> {
+        print("[STT] startRecognition called for language: \(language.rawValue)")
+
         guard !isRecognizing else {
+            print("[STT] Already recognizing, throwing error")
             throw LiveLingoError.sttAlreadyRecognizing
         }
 
         // Check authorization
         let status = SFSpeechRecognizer.authorizationStatus()
+        print("[STT] Authorization status: \(status.rawValue)")
         guard status == .authorized else {
+            print("[STT] Permission denied, status: \(status.rawValue)")
             throw LiveLingoError.sttPermissionDenied
         }
 
@@ -62,11 +67,17 @@ public actor AppleSTTService: STTServiceProtocol {
 
         // Configure recognition request
         recognitionRequest.shouldReportPartialResults = true
-        recognitionRequest.requiresOnDeviceRecognition = speechRecognizer.supportsOnDeviceRecognition
+
+        // Force server-based recognition to avoid local service issues (error 1101)
+        recognitionRequest.requiresOnDeviceRecognition = false
+        print("[STT] Using server-based recognition (on-device: \(speechRecognizer.supportsOnDeviceRecognition))")
 
         if #available(iOS 16.0, *) {
             recognitionRequest.addsPunctuation = true
         }
+
+        // Set task hint for better recognition
+        recognitionRequest.taskHint = .dictation
 
         isRecognizing = true
 
@@ -99,6 +110,8 @@ public actor AppleSTTService: STTServiceProtocol {
     }
 
     public func stopRecognition() async {
+        print("[STT] Stopping recognition...")
+
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
 
@@ -109,17 +122,41 @@ public actor AppleSTTService: STTServiceProtocol {
         recognitionRequest = nil
         recognitionTask = nil
         isRecognizing = false
+
+        // Deactivate audio session
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            print("[STT] Audio session deactivated")
+        } catch {
+            print("[STT] Failed to deactivate audio session: \(error)")
+        }
+
+        print("[STT] Recognition stopped")
     }
 
     // MARK: - Private Methods
 
     private func setupAudioEngine(_ engine: AVAudioEngine, request: SFSpeechAudioBufferRecognitionRequest) async throws {
+        // Configure audio session for speech recognition
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            // Use .playAndRecord to support both STT and TTS
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .mixWithOthers])
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            print("[STT] Audio session configured (category: playAndRecord)")
+        } catch {
+            print("[STT] Audio session configuration failed: \(error)")
+            throw LiveLingoError.audioSessionConfigurationFailed(underlying: error)
+        }
+
         let inputNode = engine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
         guard recordingFormat.sampleRate > 0 else {
-            throw LiveLingoError.audioSessionConfigurationFailed(reason: "Invalid audio format")
+            throw LiveLingoError.audioSessionConfigurationFailed(underlying: NSError(domain: "AppleSTTService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid audio format"]))
         }
+
+        print("[STT] Audio format: \(recordingFormat.sampleRate)Hz, \(recordingFormat.channelCount) channels")
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
             request.append(buffer)
@@ -129,8 +166,10 @@ public actor AppleSTTService: STTServiceProtocol {
 
         do {
             try engine.start()
+            print("[STT] Audio engine started successfully")
         } catch {
-            throw LiveLingoError.audioSessionActivationFailed(reason: error.localizedDescription)
+            print("[STT] Audio engine start failed: \(error)")
+            throw LiveLingoError.audioSessionActivationFailed(underlying: error)
         }
     }
 
@@ -140,21 +179,37 @@ public actor AppleSTTService: STTServiceProtocol {
         language: SupportedLanguage,
         continuation: AsyncStream<RecognitionResult>.Continuation
     ) async throws {
+        print("[STT] Starting recognition task...")
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             guard let self = self else { return }
 
             if let error = error {
                 // Handle specific errors
                 if let nsError = error as NSError? {
+                    print("[STT] Recognition error: \(nsError.domain) code=\(nsError.code) - \(nsError.localizedDescription)")
+
                     switch nsError.code {
                     case 1110: // "No speech detected"
                         // Continue silently
+                        print("[STT] No speech detected, continuing...")
+                        return
+                    case 1101: // Service unavailable or network issue
+                        print("[STT] Error 1101: Speech recognition service unavailable. Check network connection.")
+                        // Continue - don't stop, as this might be temporary
                         return
                     case 301: // "Recognition error"
+                        print("[STT] Error 301: Recognition error, stopping...")
                         Task { await self.stopRecognition() }
                         continuation.finish()
                         return
+                    case 203: // "Operation cancelled"
+                        print("[STT] Error 203: Operation cancelled")
+                        return
+                    case 209: // "Session ended"
+                        print("[STT] Error 209: Session ended")
+                        return
                     default:
+                        print("[STT] Unhandled error code: \(nsError.code)")
                         break
                     }
                 }
@@ -164,7 +219,12 @@ public actor AppleSTTService: STTServiceProtocol {
                 return
             }
 
-            guard let result = result else { return }
+            guard let result = result else {
+                print("[STT] Received nil result (waiting for speech...)")
+                return
+            }
+
+            print("[STT] Recognition result: '\(result.bestTranscription.formattedString)' isFinal=\(result.isFinal)")
 
             let recognitionResult = RecognitionResult(
                 text: result.bestTranscription.formattedString,
@@ -172,8 +232,7 @@ public actor AppleSTTService: STTServiceProtocol {
                 speakerID: .speaker1,
                 confidence: self.calculateConfidence(from: result),
                 language: language,
-                timestamp: Date(),
-                segments: self.extractSegments(from: result)
+                timestamp: Date()
             )
 
             continuation.yield(recognitionResult)
@@ -225,23 +284,6 @@ public struct RecognitionSegment: Sendable {
 // MARK: - Enhanced Recognition Result
 
 extension RecognitionResult {
-    public var segments: [RecognitionSegment]?
-
-    init(
-        text: String,
-        isFinal: Bool,
-        speakerID: SpeakerID = .unknown,
-        confidence: Float = 0,
-        language: SupportedLanguage,
-        timestamp: Date = Date(),
-        segments: [RecognitionSegment]? = nil
-    ) {
-        self.init(
-            text: text,
-            isFinal: isFinal,
-            speakerID: speakerID,
-            confidence: confidence,
-            language: language
-        )
-    }
+    /// Segments are not stored in RecognitionResult - use dedicated segment tracking
+    public var segments: [RecognitionSegment]? { nil }
 }

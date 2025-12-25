@@ -47,9 +47,14 @@ test.describe('Backend API', () => {
   });
 
   test('should handle CORS headers', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/health`);
+    // Send request with Origin header to trigger CORS response
+    const response = await request.get(`${API_URL}/api/health`, {
+      headers: {
+        'Origin': 'http://localhost:3000'
+      }
+    });
 
-    // Check CORS headers are present
+    // Check CORS headers are present when Origin is sent
     const headers = response.headers();
     expect(headers['access-control-allow-origin']).toBeDefined();
   });

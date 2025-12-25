@@ -179,7 +179,7 @@ public actor AudioSessionManager: AudioSessionManagerProtocol {
             )
             _currentMode = mode
         } catch {
-            throw LiveLingoError.audioSessionConfigurationFailed(reason: error.localizedDescription)
+            throw LiveLingoError.audioSessionConfigurationFailed(underlying: error)
         }
     }
 
@@ -190,7 +190,7 @@ public actor AudioSessionManager: AudioSessionManagerProtocol {
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             _isActive = true
         } catch {
-            throw LiveLingoError.audioSessionActivationFailed(reason: error.localizedDescription)
+            throw LiveLingoError.audioSessionActivationFailed(underlying: error)
         }
     }
 
@@ -201,7 +201,7 @@ public actor AudioSessionManager: AudioSessionManagerProtocol {
             try session.setActive(false, options: .notifyOthersOnDeactivation)
             _isActive = false
         } catch {
-            throw LiveLingoError.audioSessionActivationFailed(reason: error.localizedDescription)
+            throw LiveLingoError.audioSessionActivationFailed(underlying: error)
         }
     }
 
@@ -209,13 +209,13 @@ public actor AudioSessionManager: AudioSessionManagerProtocol {
 
     public func setPreferredInput(_ route: AudioRoute) async throws {
         guard let input = session.availableInputs?.first(where: { $0.uid == route.id }) else {
-            throw LiveLingoError.audioRouteNotAvailable(route: route.name)
+            throw LiveLingoError.audioInputUnavailable
         }
 
         do {
             try session.setPreferredInput(input)
         } catch {
-            throw LiveLingoError.audioRouteNotAvailable(route: route.name)
+            throw LiveLingoError.audioInputUnavailable
         }
     }
 

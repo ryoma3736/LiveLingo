@@ -397,14 +397,11 @@ public actor LiveTranslationService {
 
     private func setupCallbacks(sourceLanguage: SupportedLanguage, targetLanguage: SupportedLanguage) async {
         // Handle translated text (streaming)
-        await geminiService.setOnTranslation { [weak self] text, language in
-            guard let self = self else { return }
-
-            // Append to streaming buffer
-            self.currentStreamingText += text
-
-            // Emit streaming text for real-time display
-            self.onStreamingText?(self.currentStreamingText)
+        await geminiService.setOnTranslation { [weak self] text, _ in
+            Task { [weak self] in
+                guard let self = self else { return }
+                await self.appendStreamingText(text)
+            }
         }
 
         // Handle audio output
@@ -422,36 +419,46 @@ public actor LiveTranslationService {
 
         // Handle state changes
         await geminiService.setOnStateChange { [weak self] state in
-            guard let self = self else { return }
-
-            switch state {
-            case .ready:
-                // Turn complete - finalize the streaming text
-                if !self.currentStreamingText.isEmpty {
-                    let item = TranscriptItem(
-                        speaker: .speaker1,
-                        sourceLanguage: sourceLanguage,
-                        targetLanguage: targetLanguage,
-                        originalText: "", // Gemini Live doesn't provide original
-                        translatedText: self.currentStreamingText
-                    )
-                    self.onTranscript?(item)
-                    self.currentStreamingText = ""
-                }
-                self.onStateChange?(.active)
-
-            case .listening:
-                self.onStateChange?(.active)
-
-            case .processing, .speaking:
-                self.onStateChange?(.processing)
-
-            case .error(let message):
-                self.onError?(LiveLingoError.sttNotAvailable(reason: message))
-
-            default:
-                break
+            Task { [weak self] in
+                guard let self = self else { return }
+                await self.handleStateChange(state, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
             }
+        }
+    }
+
+    private func appendStreamingText(_ text: String) {
+        currentStreamingText += text
+        onStreamingText?(currentStreamingText)
+    }
+
+    private func handleStateChange(_ state: GeminiLiveState, sourceLanguage: SupportedLanguage, targetLanguage: SupportedLanguage) {
+        switch state {
+        case .ready:
+            // Turn complete - finalize the streaming text
+            if !currentStreamingText.isEmpty {
+                let item = TranscriptItem(
+                    speaker: .speaker1,
+                    sourceLanguage: sourceLanguage,
+                    targetLanguage: targetLanguage,
+                    originalText: "", // Gemini Live doesn't provide original
+                    translatedText: currentStreamingText
+                )
+                onTranscript?(item)
+                currentStreamingText = ""
+            }
+            onStateChange?(.active)
+
+        case .listening:
+            onStateChange?(.active)
+
+        case .processing, .speaking:
+            onStateChange?(.processing)
+
+        case .error(let message):
+            onError?(LiveLingoError.sttNotAvailable(reason: message))
+
+        default:
+            break
         }
     }
 }

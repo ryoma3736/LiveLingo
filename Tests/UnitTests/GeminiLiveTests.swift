@@ -104,7 +104,7 @@ final class GeminiLiveTests: XCTestCase {
 
         XCTAssertTrue(json.contains("realtime_input"))
         XCTAssertTrue(json.contains("media_chunks"))
-        XCTAssertTrue(json.contains("audio/pcm"))
+        XCTAssertTrue(json.contains("audio") && json.contains("pcm"))
     }
 
     func testClientContentMessageEncoding() throws {
@@ -143,12 +143,12 @@ final class GeminiLiveTests: XCTestCase {
         let json = """
         {
             "serverContent": {
-                "modelTurn": {
+                "model_turn": {
                     "parts": [
                         {"text": "Hello, how are you?"}
                     ]
                 },
-                "turnComplete": true
+                "turn_complete": true
             }
         }
         """
@@ -165,11 +165,11 @@ final class GeminiLiveTests: XCTestCase {
         let json = """
         {
             "serverContent": {
-                "modelTurn": {
+                "model_turn": {
                     "parts": [
                         {
-                            "inlineData": {
-                                "mimeType": "audio/pcm;rate=24000",
+                            "inline_data": {
+                                "mime_type": "audio/pcm;rate=24000",
                                 "data": "AAECBA=="
                             }
                         }

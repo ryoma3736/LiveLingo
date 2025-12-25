@@ -4,7 +4,9 @@ import AVFoundation
 // MARK: - Apple TTS Service
 
 /// Apple's AVSpeechSynthesizer-based TTS service
-public actor AppleTTSService: TTSServiceProtocol {
+/// Uses @MainActor because AVSpeechSynthesizer must run on main thread
+@MainActor
+public final class AppleTTSService: TTSServiceProtocol, @unchecked Sendable {
     public let provider: VoiceProvider = .system
 
     private let synthesizer: AVSpeechSynthesizer
@@ -12,7 +14,7 @@ public actor AppleTTSService: TTSServiceProtocol {
     public private(set) var isSpeaking: Bool = false
 
     private var currentUtterance: AVSpeechUtterance?
-    private var playbackContinuation: CheckedContinuation<Void, Error>?
+    private var speechCompletion: (() -> Void)?
 
     public init() {
         self.synthesizer = AVSpeechSynthesizer()
@@ -21,9 +23,9 @@ public actor AppleTTSService: TTSServiceProtocol {
 
     private func setupDelegate() {
         let delegate = TTSSynthesizerDelegate { [weak self] in
-            Task { await self?.handleSpeechDidFinish() }
+            self?.handleSpeechDidFinish()
         } onError: { [weak self] error in
-            Task { await self?.handleSpeechError(error) }
+            self?.handleSpeechError(error)
         }
         self.delegate = delegate
         self.synthesizer.delegate = delegate
@@ -53,7 +55,20 @@ public actor AppleTTSService: TTSServiceProtocol {
 
     public func speak(_ text: String, voice: VoiceOption) async throws {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("[TTS] Empty text, skipping")
             return
+        }
+
+        print("[TTS] Speaking: \(text.prefix(50))...")
+
+        // Configure audio session for playback
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try audioSession.setActive(true)
+            print("[TTS] Audio session configured for playback")
+        } catch {
+            print("[TTS] Audio session error: \(error)")
         }
 
         // Stop any current speech
@@ -65,22 +80,34 @@ public actor AppleTTSService: TTSServiceProtocol {
         currentUtterance = utterance
         isSpeaking = true
 
-        return try await withCheckedThrowingContinuation { continuation in
-            playbackContinuation = continuation
-            synthesizer.speak(utterance)
+        print("[TTS] Created utterance with voice: \(utterance.voice?.name ?? "default")")
+        print("[TTS] Voice language: \(utterance.voice?.language ?? "nil")")
+
+        // Wait for speech to complete using continuation
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            self.speechCompletion = {
+                continuation.resume()
+            }
+            self.synthesizer.speak(utterance)
+            print("[TTS] Speech started, waiting for completion...")
         }
+
+        isSpeaking = false
+        speechCompletion = nil
+        print("[TTS] Speech completed")
     }
 
     public func play(_ data: Data) async throws {
         // Not applicable for AVSpeechSynthesizer
-        throw LiveLingoError.ttsPlaybackFailed(reason: "Direct audio playback not supported")
+        throw LiveLingoError.ttsPlaybackFailed(underlying: NSError(domain: "AppleTTSService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Direct audio playback not supported"]))
     }
 
     public func stopPlayback() {
+        print("[TTS] stopPlayback called")
         synthesizer.stopSpeaking(at: .immediate)
         isSpeaking = false
-        playbackContinuation?.resume()
-        playbackContinuation = nil
+        speechCompletion?()
+        speechCompletion = nil
     }
 
     public func pause() {
@@ -93,7 +120,7 @@ public actor AppleTTSService: TTSServiceProtocol {
 
     // MARK: - Voices
 
-    public func availableVoices(for language: SupportedLanguage) -> [VoiceOption] {
+    public func availableVoices(for language: SupportedLanguage) async -> [VoiceOption] {
         AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language.starts(with: language.languageCode) }
             .map { voice in
@@ -116,7 +143,7 @@ public actor AppleTTSService: TTSServiceProtocol {
             }
     }
 
-    public func defaultVoice(for language: SupportedLanguage) -> VoiceOption? {
+    public func defaultVoice(for language: SupportedLanguage) async -> VoiceOption? {
         guard let voice = AVSpeechSynthesisVoice(language: language.rawValue) else {
             return nil
         }
@@ -181,15 +208,17 @@ public actor AppleTTSService: TTSServiceProtocol {
     }
 
     private func handleSpeechDidFinish() {
+        print("[TTS] Delegate: didFinish called")
         isSpeaking = false
-        playbackContinuation?.resume()
-        playbackContinuation = nil
+        speechCompletion?()
+        speechCompletion = nil
     }
 
     private func handleSpeechError(_ error: Error) {
+        print("[TTS] Delegate: error - \(error)")
         isSpeaking = false
-        playbackContinuation?.resume(throwing: error)
-        playbackContinuation = nil
+        speechCompletion?()
+        speechCompletion = nil
     }
 }
 
@@ -232,27 +261,11 @@ public enum VoiceQuality: Int, Sendable, Codable {
     }
 }
 
-// MARK: - Voice Gender
-
-public enum VoiceGender: String, Sendable, Codable {
-    case male
-    case female
-
-    public var displayName: String {
-        switch self {
-        case .male:
-            return "Male"
-        case .female:
-            return "Female"
-        }
-    }
-}
-
 // MARK: - Extended VoiceOption
 
 extension VoiceOption {
     public var quality: VoiceQuality? { nil }
-    public var gender: VoiceGender? { nil }
+    public var genderType: VoiceGender? { nil }
 
     init(
         id: String,

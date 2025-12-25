@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { prisma, checkDatabaseConnection, getDatabaseHealth } from './lib/prisma';
 import { createApiRouter } from './routes/api';
 import { WebSocketService } from './services/websocket';
+import { GeminiService } from './services/gemini';
 
 // Load environment variables
 dotenv.config();
@@ -17,12 +18,22 @@ const PORT = process.env.PORT || 3001;
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://localhost:8080',
 ];
 
 // Middleware
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all origins for now
+    }
+  },
   credentials: true,
+  exposedHeaders: ['Access-Control-Allow-Origin'],
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -33,17 +44,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize WebSocket service if Gemini API key is provided
+// Initialize GeminiService and WebSocket service
 let wsService: WebSocketService | null = null;
+let geminiService: GeminiService | null = null;
+
 if (process.env.GEMINI_API_KEY) {
+  geminiService = new GeminiService(process.env.GEMINI_API_KEY);
   wsService = new WebSocketService(server, process.env.GEMINI_API_KEY);
-  console.log('✅ WebSocket service initialized');
+  console.log('✅ Gemini service and WebSocket initialized');
 } else {
-  console.warn('⚠️  GEMINI_API_KEY not found - WebSocket features disabled');
+  console.warn('⚠️  GEMINI_API_KEY not found - Gemini/WebSocket features disabled');
 }
 
-// API Routes
+// API Routes - mount routes from routes/api.ts if geminiService exists
 const apiRouter = express.Router();
+if (geminiService) {
+  const geminiApiRouter = createApiRouter(geminiService);
+  apiRouter.use('/', geminiApiRouter);
+}
 
 // Health check endpoint
 apiRouter.get('/health', async (_req: Request, res: Response) => {
@@ -64,12 +82,72 @@ apiRouter.get('/', (_req: Request, res: Response) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
-      users: '/api/users (coming soon)',
-      conversations: '/api/conversations (coming soon)',
-      transcripts: '/api/transcripts (coming soon)',
+      languages: '/api/languages',
+      translate: '/api/translate',
+      stats: '/api/stats',
       websocket: wsService ? 'ws://localhost:' + PORT + '/ws' : 'disabled',
     },
   });
+});
+
+// Languages endpoint (fallback if geminiService not available)
+apiRouter.get('/languages', (_req: Request, res: Response) => {
+  const languages = [
+    { code: 'en', name: 'English' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'it', name: 'Italian' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'zh', name: 'Chinese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'ar', name: 'Arabic' },
+    { code: 'hi', name: 'Hindi' },
+  ];
+  res.json({ languages });
+});
+
+// Stats endpoint
+apiRouter.get('/stats', (_req: Request, res: Response) => {
+  res.json({
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    platform: process.platform,
+    nodeVersion: process.version,
+  });
+});
+
+// Translate endpoint (requires geminiService)
+apiRouter.post('/translate', async (req: Request, res: Response) => {
+  const { text, targetLanguage, sourceLanguage } = req.body;
+
+  if (!text || !targetLanguage) {
+    res.status(400).json({
+      error: 'Missing required fields: text, targetLanguage',
+    });
+    return;
+  }
+
+  if (!geminiService) {
+    res.status(503).json({
+      error: 'Translation service not available',
+      message: 'GEMINI_API_KEY not configured',
+    });
+    return;
+  }
+
+  try {
+    const result = await geminiService.translateText(text, targetLanguage, sourceLanguage);
+    res.json(result);
+  } catch (error) {
+    console.error('Translation error:', error);
+    res.status(500).json({
+      error: 'Translation failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 });
 
 app.use('/api', apiRouter);

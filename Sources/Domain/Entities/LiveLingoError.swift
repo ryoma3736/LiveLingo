@@ -7,6 +7,7 @@ public enum LiveLingoError: Error, LocalizedError, Sendable {
     case sttPermissionDenied
     case sttRecognitionFailed(underlying: Error)
     case sttLanguageNotSupported(SupportedLanguage)
+    case sttAlreadyRecognizing
 
     // MARK: - Translation Errors
     case translationFailed(underlying: Error)
@@ -22,19 +23,25 @@ public enum LiveLingoError: Error, LocalizedError, Sendable {
 
     // MARK: - Audio Errors
     case audioSessionConfigurationFailed(underlying: Error)
+    case audioSessionActivationFailed(underlying: Error)
     case audioInputUnavailable
     case audioOutputUnavailable
     case audioInterrupted
+    case audioEncodingFailed(underlying: Error)
 
     // MARK: - Network Errors
     case networkUnavailable
     case networkTimeout
     case networkRequestFailed(statusCode: Int, message: String)
     case networkInvalidResponse
+    case networkInvalidURL
+    case networkDecodingFailed(underlying: Error)
+    case networkRateLimited
 
     // MARK: - Authentication Errors
     case authenticationRequired
     case authenticationFailed(reason: String)
+    case authorizationFailed(underlying: Error)
     case sessionExpired
     case biometricAuthFailed
 
@@ -50,6 +57,12 @@ public enum LiveLingoError: Error, LocalizedError, Sendable {
     // MARK: - Configuration Errors
     case configurationInvalid(reason: String)
     case apiKeyMissing(service: String)
+
+    // MARK: - Gemini Live API Errors
+    case geminiAlreadyConnected
+    case geminiNotConnected
+    case geminiConnectionFailed(underlying: Error)
+    case geminiSessionFailed(reason: String)
 
     // MARK: - General Errors
     case unknown(underlying: Error)
@@ -127,6 +140,30 @@ public enum LiveLingoError: Error, LocalizedError, Sendable {
             return "Invalid configuration: \(reason)"
         case .apiKeyMissing(let service):
             return "API key for \(service) is missing"
+
+        case .sttAlreadyRecognizing:
+            return "Speech recognition is already in progress"
+        case .audioSessionActivationFailed(let error):
+            return "Failed to activate audio session: \(error.localizedDescription)"
+        case .audioEncodingFailed(let error):
+            return "Failed to encode audio: \(error.localizedDescription)"
+        case .networkInvalidURL:
+            return "Invalid URL"
+        case .networkDecodingFailed(let error):
+            return "Failed to decode response: \(error.localizedDescription)"
+        case .networkRateLimited:
+            return "Rate limit exceeded"
+        case .authorizationFailed(let error):
+            return "Authorization failed: \(error.localizedDescription)"
+
+        case .geminiAlreadyConnected:
+            return "Gemini Live API is already connected"
+        case .geminiNotConnected:
+            return "Gemini Live API is not connected"
+        case .geminiConnectionFailed(let error):
+            return "Gemini connection failed: \(error.localizedDescription)"
+        case .geminiSessionFailed(let reason):
+            return "Gemini session failed: \(reason)"
 
         case .unknown(let error):
             return "An unexpected error occurred: \(error.localizedDescription)"

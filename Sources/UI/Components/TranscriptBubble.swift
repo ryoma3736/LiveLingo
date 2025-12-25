@@ -62,7 +62,8 @@ public struct TranscriptBubble: View {
             .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
 
             // Translation (if available and showing)
-            if showTranslation, let translation = item.translatedText, !translation.isEmpty {
+            if showTranslation, !item.translatedText.isEmpty {
+                let translation = item.translatedText
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text(translation)
                         .font(DesignSystem.Typography.translationText)
