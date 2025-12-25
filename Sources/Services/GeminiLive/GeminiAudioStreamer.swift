@@ -122,10 +122,14 @@ public actor GeminiAudioStreamer {
 
     /// Stop audio playback
     public func stopPlayback() async {
+        print("[AudioStreamer] Stopping playback...")
         audioPlayer?.stop()
         audioPlayer = nil
+        playbackEngine?.stop()
+        playbackEngine = nil
         isPlaying = false
         outputBuffer = Data()
+        print("[AudioStreamer] Playback stopped")
     }
 
     // MARK: - Private Methods
@@ -193,13 +197,17 @@ public actor GeminiAudioStreamer {
         let dataToPlay = outputBuffer
         outputBuffer = Data()
 
+        print("[AudioStreamer] Playing \(dataToPlay.count) bytes of audio")
+
         // Create audio buffer from data
         guard let pcmBuffer = dataToBuffer(dataToPlay, format: outputFormat) else {
+            print("[AudioStreamer] Failed to create PCM buffer")
             return
         }
 
-        // Setup player if needed
+        // Setup playback engine if needed (separate from capture engine)
         if audioPlayer == nil {
+            print("[AudioStreamer] Setting up playback engine (24kHz)")
             audioPlayer = AVAudioPlayerNode()
             let engine = AVAudioEngine()
 
@@ -208,21 +216,22 @@ public actor GeminiAudioStreamer {
 
             do {
                 try engine.start()
+                print("[AudioStreamer] Playback engine started")
             } catch {
+                print("[AudioStreamer] Failed to start playback engine: \(error)")
                 throw LiveLingoError.ttsPlaybackFailed(underlying: error)
             }
 
-            self.audioEngine = engine
+            self.playbackEngine = engine
         }
 
-        // Schedule and play buffer
-        audioPlayer?.scheduleBuffer(pcmBuffer) {
-            // Buffer finished playing
-        }
+        // Schedule buffer for continuous playback
+        audioPlayer?.scheduleBuffer(pcmBuffer, completionHandler: nil)
 
         if !isPlaying {
             audioPlayer?.play()
             isPlaying = true
+            print("[AudioStreamer] Started playback")
         }
     }
 
