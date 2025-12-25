@@ -13,7 +13,7 @@ final class StreamingTranslationTests: XCTestCase {
         )
 
         let url = config.webSocketURL
-        XCTAssertTrue(url.absoluteString.contains("v1alpha"))
+        XCTAssertTrue(url.absoluteString.contains("v1beta"))
         XCTAssertTrue(url.absoluteString.contains("BidiGenerateContent"))
         XCTAssertTrue(url.absoluteString.contains("test-api-key"))
     }

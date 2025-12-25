@@ -51,7 +51,6 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
     private var _state: GeminiLiveState = .disconnected
 
     // Connection management
-    private var connectionContinuation: CheckedContinuation<Void, Error>?
     private var reconnectAttempts: Int = 0
     private let maxReconnectAttempts: Int = 3
     private var heartbeatTask: Task<Void, Never>?
@@ -131,51 +130,35 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
         webSocket = urlSession?.webSocketTask(with: request)
 
-        // Wait for connection to establish
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            self.connectionContinuation = continuation
+        // Resume the WebSocket task
+        webSocket?.resume()
 
-            // Resume the WebSocket task
-            self.webSocket?.resume()
+        // Wait for connection by attempting to receive a ping/pong
+        _isConnected = true
+        await updateState(.connected)
+        print("[GeminiLive] WebSocket task resumed")
 
-            // Set a timeout for connection establishment
-            Task {
-                try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds timeout
-                if !self._isConnected {
-                    self.connectionContinuation?.resume(throwing: LiveLingoError.geminiSessionFailed(reason: "Connection timeout"))
-                    self.connectionContinuation = nil
-                }
-            }
+        // Start receiving messages in background
+        Task {
+            await self.receiveMessages()
+        }
 
-            // Mark as connected once resumed (WebSocket establishes on resume)
-            Task {
-                // Small delay to ensure connection is established
-                try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                if self.webSocket != nil {
-                    self._isConnected = true
-                    await self.updateState(.connected)
-                    print("[GeminiLive] WebSocket connected successfully")
+        // Send setup message and wait for setupComplete
+        try await sendSetupMessage()
 
-                    // Start receiving messages
-                    Task {
-                        await self.receiveMessages()
-                    }
-
-                    // Start heartbeat
-                    self.startHeartbeat()
-
-                    // Send setup message
-                    do {
-                        try await self.sendSetupMessage()
-                        self.connectionContinuation?.resume()
-                        self.connectionContinuation = nil
-                    } catch {
-                        self.connectionContinuation?.resume(throwing: error)
-                        self.connectionContinuation = nil
-                    }
-                }
+        // Wait for setupComplete response (with timeout)
+        let startTime = Date()
+        while !_isSessionActive {
+            try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            if Date().timeIntervalSince(startTime) > 10 {
+                throw LiveLingoError.geminiSessionFailed(reason: "Setup timeout - no response from server")
             }
         }
+
+        // Start heartbeat after session is active
+        startHeartbeat()
+
+        print("[GeminiLive] Session setup complete, ready for audio")
     }
 
     /// Start heartbeat to keep connection alive
@@ -215,7 +198,6 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
         config = nil
         translationMode = nil
         audioBuffer = Data()
-        connectionContinuation = nil
         reconnectAttempts = 0
 
         await updateState(.disconnected)

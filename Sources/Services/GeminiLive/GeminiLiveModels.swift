@@ -27,9 +27,9 @@ public struct GeminiLiveConfig: Sendable {
         self.generationConfig = generationConfig
     }
 
-    /// WebSocket URL for Gemini Live API (v1alpha for BidiGenerateContent)
+    /// WebSocket URL for Gemini Live API (v1beta for BidiGenerateContent)
     public var webSocketURL: URL {
-        URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=\(apiKey)")!
+        URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=\(apiKey)")!
     }
 }
 
