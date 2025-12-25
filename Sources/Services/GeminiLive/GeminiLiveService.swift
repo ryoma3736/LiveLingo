@@ -14,11 +14,11 @@ public protocol GeminiLiveServiceProtocol: Sendable {
     func sendText(_ text: String) async throws
     func endTurn() async throws
 
-    var onTranscript: (@Sendable (String, SupportedLanguage) -> Void)? { get set }
-    var onTranslation: (@Sendable (String, SupportedLanguage) -> Void)? { get set }
-    var onAudioOutput: (@Sendable (Data) -> Void)? { get set }
-    var onError: (@Sendable (Error) -> Void)? { get set }
-    var onStateChange: (@Sendable (GeminiLiveState) -> Void)? { get set }
+    func setOnTranscript(_ handler: (@Sendable (String, SupportedLanguage) -> Void)?) async
+    func setOnTranslation(_ handler: (@Sendable (String, SupportedLanguage) -> Void)?) async
+    func setOnAudioOutput(_ handler: (@Sendable (Data) -> Void)?) async
+    func setOnError(_ handler: (@Sendable (Error) -> Void)?) async
+    func setOnStateChange(_ handler: (@Sendable (GeminiLiveState) -> Void)?) async
 }
 
 // MARK: - Connection State
@@ -50,17 +50,43 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
     private var _isSessionActive: Bool = false
     private var _state: GeminiLiveState = .disconnected
 
+    // Connection management
+    private var connectionContinuation: CheckedContinuation<Void, Error>?
+    private var reconnectAttempts: Int = 0
+    private let maxReconnectAttempts: Int = 3
+    private var heartbeatTask: Task<Void, Never>?
+
     public var isConnected: Bool { _isConnected }
     public var isSessionActive: Bool { _isSessionActive }
     public var state: GeminiLiveState { _state }
 
     // MARK: - Callbacks
 
-    public var onTranscript: (@Sendable (String, SupportedLanguage) -> Void)?
-    public var onTranslation: (@Sendable (String, SupportedLanguage) -> Void)?
-    public var onAudioOutput: (@Sendable (Data) -> Void)?
-    public var onError: (@Sendable (Error) -> Void)?
-    public var onStateChange: (@Sendable (GeminiLiveState) -> Void)?
+    private var _onTranscript: (@Sendable (String, SupportedLanguage) -> Void)?
+    private var _onTranslation: (@Sendable (String, SupportedLanguage) -> Void)?
+    private var _onAudioOutput: (@Sendable (Data) -> Void)?
+    private var _onError: (@Sendable (Error) -> Void)?
+    private var _onStateChange: (@Sendable (GeminiLiveState) -> Void)?
+
+    public func setOnTranscript(_ handler: (@Sendable (String, SupportedLanguage) -> Void)?) {
+        _onTranscript = handler
+    }
+
+    public func setOnTranslation(_ handler: (@Sendable (String, SupportedLanguage) -> Void)?) {
+        _onTranslation = handler
+    }
+
+    public func setOnAudioOutput(_ handler: (@Sendable (Data) -> Void)?) {
+        _onAudioOutput = handler
+    }
+
+    public func setOnError(_ handler: (@Sendable (Error) -> Void)?) {
+        _onError = handler
+    }
+
+    public func setOnStateChange(_ handler: (@Sendable (GeminiLiveState) -> Void)?) {
+        _onStateChange = handler
+    }
 
     // MARK: - Audio Processing
 
@@ -82,36 +108,103 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
         self.config = config
         self.translationMode = translationMode
+        self.reconnectAttempts = 0
 
         await updateState(.connecting)
 
-        // Create URL session
+        print("[GeminiLive] Connecting to WebSocket...")
+        print("[GeminiLive] URL: \(config.webSocketURL)")
+        print("[GeminiLive] Model: \(config.model.rawValue)")
+
+        // Create URL session with proper configuration
         let sessionConfig = URLSessionConfiguration.default
         sessionConfig.timeoutIntervalForRequest = 300 // 5 minutes
         sessionConfig.timeoutIntervalForResource = 3600 // 1 hour
+        sessionConfig.waitsForConnectivity = true
 
-        urlSession = URLSession(configuration: sessionConfig, delegate: nil, delegateQueue: nil)
+        urlSession = URLSession(configuration: sessionConfig)
 
-        // Create WebSocket task
+        // Create WebSocket task with proper headers
         var request = URLRequest(url: config.webSocketURL)
-        request.timeoutInterval = 300
+        request.timeoutInterval = 30
+        request.setValue("permessage-deflate; client_max_window_bits", forHTTPHeaderField: "Sec-WebSocket-Extensions")
 
         webSocket = urlSession?.webSocketTask(with: request)
-        webSocket?.resume()
 
-        _isConnected = true
-        await updateState(.connected)
+        // Wait for connection to establish
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.connectionContinuation = continuation
 
-        // Start receiving messages
-        Task {
-            await receiveMessages()
+            // Resume the WebSocket task
+            self.webSocket?.resume()
+
+            // Set a timeout for connection establishment
+            Task {
+                try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds timeout
+                if !self._isConnected {
+                    self.connectionContinuation?.resume(throwing: LiveLingoError.geminiSessionFailed(reason: "Connection timeout"))
+                    self.connectionContinuation = nil
+                }
+            }
+
+            // Mark as connected once resumed (WebSocket establishes on resume)
+            Task {
+                // Small delay to ensure connection is established
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                if self.webSocket != nil {
+                    self._isConnected = true
+                    await self.updateState(.connected)
+                    print("[GeminiLive] WebSocket connected successfully")
+
+                    // Start receiving messages
+                    Task {
+                        await self.receiveMessages()
+                    }
+
+                    // Start heartbeat
+                    self.startHeartbeat()
+
+                    // Send setup message
+                    do {
+                        try await self.sendSetupMessage()
+                        self.connectionContinuation?.resume()
+                        self.connectionContinuation = nil
+                    } catch {
+                        self.connectionContinuation?.resume(throwing: error)
+                        self.connectionContinuation = nil
+                    }
+                }
+            }
         }
+    }
 
-        // Send setup message
-        try await sendSetupMessage()
+    /// Start heartbeat to keep connection alive
+    private func startHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task {
+            while !Task.isCancelled && _isConnected {
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+                guard _isConnected, let webSocket = webSocket else { break }
+
+                do {
+                    try await webSocket.sendPing { error in
+                        if let error = error {
+                            print("[GeminiLive] Heartbeat ping failed: \(error)")
+                        }
+                    }
+                } catch {
+                    print("[GeminiLive] Heartbeat error: \(error)")
+                }
+            }
+        }
     }
 
     public func disconnect() async {
+        print("[GeminiLive] Disconnecting...")
+
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
         urlSession?.invalidateAndCancel()
@@ -122,15 +215,18 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
         config = nil
         translationMode = nil
         audioBuffer = Data()
+        connectionContinuation = nil
+        reconnectAttempts = 0
 
         await updateState(.disconnected)
+        print("[GeminiLive] Disconnected")
     }
 
     // MARK: - Send Messages
 
     public func sendAudio(_ data: Data) async throws {
         guard _isSessionActive else {
-            throw LiveLingoError.geminiSessionNotActive
+            throw LiveLingoError.geminiNotConnected
         }
 
         // Convert to base64
@@ -156,7 +252,7 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
     public func sendText(_ text: String) async throws {
         guard _isSessionActive else {
-            throw LiveLingoError.geminiSessionNotActive
+            throw LiveLingoError.geminiNotConnected
         }
 
         let message = ClientContentMessage(
@@ -174,7 +270,7 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
     public func endTurn() async throws {
         guard _isSessionActive else {
-            throw LiveLingoError.geminiSessionNotActive
+            throw LiveLingoError.geminiNotConnected
         }
 
         let message = ClientContentMessage(
@@ -189,10 +285,11 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
     private func sendSetupMessage() async throws {
         guard let config = config, let translationMode = translationMode else {
-            throw LiveLingoError.geminiConfigurationMissing
+            throw LiveLingoError.geminiSessionFailed(reason: "Configuration missing")
         }
 
         await updateState(.setupPending)
+        print("[GeminiLive] Sending setup message...")
 
         let voiceConfig = VoiceConfig(
             prebuiltVoiceConfig: PrebuiltVoiceConfig(voiceName: "Aoede") // Natural voice
@@ -211,7 +308,16 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
         )
 
         let message = SetupMessage(setup: setup)
+
+        #if DEBUG
+        if let jsonData = try? JSONEncoder().encode(message),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("[GeminiLive] Setup message: \(jsonString.prefix(500))...")
+        }
+        #endif
+
         try await sendMessage(message)
+        print("[GeminiLive] Setup message sent successfully")
     }
 
     private func sendMessage<T: Encodable>(_ message: T) async throws {
@@ -274,6 +380,7 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
     }
 
     private func handleSetupComplete(_ message: SetupCompleteMessage) async {
+        print("[GeminiLive] Setup complete - session is now active")
         _isSessionActive = true
         await updateState(.ready)
     }
@@ -315,12 +422,12 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
         // The text from Gemini is the translation
         // We assume it's translated to the target language
-        onTranslation?(text, translationMode.targetLanguage)
+        _onTranslation?(text, translationMode.targetLanguage)
     }
 
     private func handleAudioOutput(_ data: Data) async {
         await updateState(.speaking)
-        onAudioOutput?(data)
+        _onAudioOutput?(data)
     }
 
     private func handleToolCall(_ message: ToolCallMessage) async {
@@ -331,19 +438,20 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
     }
 
     private func handleErrorMessage(_ message: ErrorMessage) async {
-        let error = LiveLingoError.geminiAPIError(
-            code: message.error.code,
+        let error = LiveLingoError.networkRequestFailed(
+            statusCode: message.error.code,
             message: message.error.message
         )
         await handleError(error)
     }
 
     private func handleError(_ error: Error) async {
+        print("[GeminiLive] Error occurred: \(error.localizedDescription)")
         await updateState(.error(error.localizedDescription))
-        onError?(error)
+        _onError?(error)
 
         // Attempt reconnection for recoverable errors
-        if shouldAttemptReconnection(for: error) {
+        if shouldAttemptReconnection(for: error) && reconnectAttempts < maxReconnectAttempts {
             await attemptReconnection()
         }
     }
@@ -352,55 +460,52 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
         // Implement reconnection logic based on error type
         if let urlError = error as? URLError {
             switch urlError.code {
-            case .networkConnectionLost, .notConnectedToInternet, .timedOut:
+            case .networkConnectionLost, .notConnectedToInternet, .timedOut, .cannotConnectToHost:
                 return true
             default:
                 return false
             }
         }
+
+        // Check for WebSocket-specific errors
+        let nsError = error as NSError
+        if nsError.domain == NSPOSIXErrorDomain {
+            // ENOTCONN (57) - Socket is not connected
+            if nsError.code == 57 {
+                return true
+            }
+        }
+
         return false
     }
 
     private func attemptReconnection() async {
         guard let config = config, let translationMode = translationMode else { return }
 
-        // Wait before reconnecting
-        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        reconnectAttempts += 1
+        print("[GeminiLive] Attempting reconnection (\(reconnectAttempts)/\(maxReconnectAttempts))...")
+
+        // Exponential backoff: 2s, 4s, 8s
+        let backoffSeconds = UInt64(pow(2.0, Double(reconnectAttempts)))
+        try? await Task.sleep(nanoseconds: backoffSeconds * 1_000_000_000)
 
         do {
             await disconnect()
             try await connect(config: config, translationMode: translationMode)
+            print("[GeminiLive] Reconnection successful")
+            reconnectAttempts = 0
         } catch {
-            await handleError(error)
+            print("[GeminiLive] Reconnection failed: \(error)")
+            if reconnectAttempts >= maxReconnectAttempts {
+                print("[GeminiLive] Max reconnection attempts reached")
+                await handleError(error)
+            }
         }
     }
 
     private func updateState(_ newState: GeminiLiveState) async {
         _state = newState
-        onStateChange?(newState)
+        _onStateChange?(newState)
     }
 }
 
-// MARK: - Error Extensions
-
-extension LiveLingoError {
-    static var geminiAlreadyConnected: LiveLingoError {
-        .sttAlreadyRecognizing
-    }
-
-    static var geminiNotConnected: LiveLingoError {
-        .networkUnavailable
-    }
-
-    static var geminiSessionNotActive: LiveLingoError {
-        .sttNotAvailable(reason: "Gemini session is not active")
-    }
-
-    static var geminiConfigurationMissing: LiveLingoError {
-        .sttNotAvailable(reason: "Gemini configuration is missing")
-    }
-
-    static func geminiAPIError(code: Int, message: String) -> LiveLingoError {
-        .networkRequestFailed(statusCode: code, message: message)
-    }
-}

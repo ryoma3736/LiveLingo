@@ -27,16 +27,20 @@ public struct GeminiLiveConfig: Sendable {
         self.generationConfig = generationConfig
     }
 
-    /// WebSocket URL for Gemini Live API
+    /// WebSocket URL for Gemini Live API (v1alpha for BidiGenerateContent)
     public var webSocketURL: URL {
-        URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=\(apiKey)")!
+        URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=\(apiKey)")!
     }
 }
 
 // MARK: - Models
 
 public enum GeminiModel: String, Sendable {
-    case gemini2FlashLive = "models/gemini-2.0-flash-exp"
+    /// Gemini 2.0 Flash for Live API (supports real-time audio streaming)
+    case gemini2FlashLive = "models/gemini-2.0-flash-live-001"
+    /// Gemini 2.5 Flash Preview for native audio (December 2025)
+    case gemini25FlashNativeAudio = "models/gemini-2.5-flash-preview-native-audio-dialog"
+    /// Gemini 2.0 Flash Thinking
     case gemini2FlashThinking = "models/gemini-2.0-flash-thinking-exp"
 }
 
@@ -193,16 +197,10 @@ public struct GoogleSearch: Codable, Sendable {
 public struct FunctionDeclaration: Codable, Sendable {
     public let name: String
     public let description: String
-    public let parameters: [String: Any]?
 
-    public init(name: String, description: String, parameters: [String: Any]? = nil) {
+    public init(name: String, description: String) {
         self.name = name
         self.description = description
-        self.parameters = nil // Simplified for now
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case name, description
     }
 }
 
