@@ -336,7 +336,7 @@ public actor LiveTranslationService {
 
         let config = GeminiLiveConfig(
             apiKey: apiKey,
-            model: .gemini2FlashLive,
+            model: .gemini25FlashNativeAudio,
             responseModalities: [.audio, .text]
         )
 

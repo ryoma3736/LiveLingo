@@ -7,7 +7,7 @@ final class GeminiLiveTests: XCTestCase {
     func testGeminiLiveConfigWebSocketURL() {
         let config = GeminiLiveConfig(
             apiKey: "test-api-key",
-            model: .gemini2FlashLive
+            model: .gemini25FlashNativeAudio
         )
 
         let url = config.webSocketURL
@@ -17,7 +17,8 @@ final class GeminiLiveTests: XCTestCase {
     }
 
     func testGeminiModelRawValues() {
-        XCTAssertEqual(GeminiModel.gemini2FlashLive.rawValue, "models/gemini-2.0-flash-exp")
+        XCTAssertEqual(GeminiModel.gemini25FlashNativeAudio.rawValue, "models/gemini-2.5-flash-native-audio-preview-12-2025")
+        XCTAssertEqual(GeminiModel.gemini2FlashLive.rawValue, "models/gemini-2.0-flash-live-001")
         XCTAssertEqual(GeminiModel.gemini2FlashThinking.rawValue, "models/gemini-2.0-flash-thinking-exp")
     }
 
@@ -68,7 +69,7 @@ final class GeminiLiveTests: XCTestCase {
 
     func testSetupMessageEncoding() throws {
         let setup = SetupConfig(
-            model: "models/gemini-2.0-flash-exp",
+            model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
             generationConfig: ClientGenerationConfig(
                 responseModalities: ["AUDIO", "TEXT"]
             ),
@@ -82,8 +83,8 @@ final class GeminiLiveTests: XCTestCase {
         let json = String(data: data, encoding: .utf8)!
 
         XCTAssertTrue(json.contains("setup"))
-        XCTAssertTrue(json.contains("gemini-2.0-flash-exp"))
-        XCTAssertTrue(json.contains("response_modalities"))
+        XCTAssertTrue(json.contains("gemini-2.5-flash-native-audio-preview-12-2025"))
+        XCTAssertTrue(json.contains("responseModalities"))
     }
 
     func testRealtimeInputMessageEncoding() throws {
@@ -102,8 +103,8 @@ final class GeminiLiveTests: XCTestCase {
         let data = try encoder.encode(message)
         let json = String(data: data, encoding: .utf8)!
 
-        XCTAssertTrue(json.contains("realtime_input"))
-        XCTAssertTrue(json.contains("media_chunks"))
+        XCTAssertTrue(json.contains("realtimeInput"))
+        XCTAssertTrue(json.contains("mediaChunks"))
         XCTAssertTrue(json.contains("audio") && json.contains("pcm"))
     }
 
@@ -121,8 +122,8 @@ final class GeminiLiveTests: XCTestCase {
         let data = try encoder.encode(message)
         let json = String(data: data, encoding: .utf8)!
 
-        XCTAssertTrue(json.contains("client_content"))
-        XCTAssertTrue(json.contains("turn_complete"))
+        XCTAssertTrue(json.contains("clientContent"))
+        XCTAssertTrue(json.contains("turnComplete"))
         XCTAssertTrue(json.contains("Hello"))
     }
 
@@ -143,12 +144,12 @@ final class GeminiLiveTests: XCTestCase {
         let json = """
         {
             "serverContent": {
-                "model_turn": {
+                "modelTurn": {
                     "parts": [
                         {"text": "Hello, how are you?"}
                     ]
                 },
-                "turn_complete": true
+                "turnComplete": true
             }
         }
         """
@@ -165,11 +166,11 @@ final class GeminiLiveTests: XCTestCase {
         let json = """
         {
             "serverContent": {
-                "model_turn": {
+                "modelTurn": {
                     "parts": [
                         {
-                            "inline_data": {
-                                "mime_type": "audio/pcm;rate=24000",
+                            "inlineData": {
+                                "mimeType": "audio/pcm;rate=24000",
                                 "data": "AAECBA=="
                             }
                         }
@@ -236,8 +237,8 @@ final class GeminiLiveTests: XCTestCase {
         let data = try encoder.encode(speechConfig)
         let json = String(data: data, encoding: .utf8)!
 
-        XCTAssertTrue(json.contains("voice_config"))
-        XCTAssertTrue(json.contains("prebuilt_voice_config"))
+        XCTAssertTrue(json.contains("voiceConfig"))
+        XCTAssertTrue(json.contains("prebuiltVoiceConfig"))
         XCTAssertTrue(json.contains("Aoede"))
     }
 }

@@ -13,7 +13,7 @@ public struct GeminiLiveConfig: Sendable {
 
     public init(
         apiKey: String,
-        model: GeminiModel = .gemini2FlashLive,
+        model: GeminiModel = .gemini25FlashNativeAudio,
         systemInstruction: String? = nil,
         responseModalities: [ResponseModality] = [.audio],
         speechConfig: SpeechConfig? = nil,
@@ -27,19 +27,19 @@ public struct GeminiLiveConfig: Sendable {
         self.generationConfig = generationConfig
     }
 
-    /// WebSocket URL for Gemini Live API (v1beta for BidiGenerateContent)
+    /// WebSocket URL for Gemini Live API
     public var webSocketURL: URL {
-        URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=\(apiKey)")!
+        URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=\(apiKey)")!
     }
 }
 
 // MARK: - Models
 
 public enum GeminiModel: String, Sendable {
-    /// Gemini 2.0 Flash for Live API (supports real-time audio streaming)
+    /// Gemini 2.5 Flash Native Audio (December 2025) - Latest Live API model
+    case gemini25FlashNativeAudio = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+    /// Gemini 2.0 Flash for Live API (legacy)
     case gemini2FlashLive = "models/gemini-2.0-flash-live-001"
-    /// Gemini 2.5 Flash Preview for native audio (December 2025)
-    case gemini25FlashNativeAudio = "models/gemini-2.5-flash-preview-native-audio-dialog"
     /// Gemini 2.0 Flash Thinking
     case gemini2FlashThinking = "models/gemini-2.0-flash-thinking-exp"
 }
@@ -49,7 +49,7 @@ public enum ResponseModality: String, Codable, Sendable {
     case text = "TEXT"
 }
 
-// MARK: - Speech Configuration
+// MARK: - Speech Configuration (camelCase for API)
 
 public struct SpeechConfig: Codable, Sendable {
     public let voiceConfig: VoiceConfig?
@@ -57,10 +57,7 @@ public struct SpeechConfig: Codable, Sendable {
     public init(voiceConfig: VoiceConfig? = nil) {
         self.voiceConfig = voiceConfig
     }
-
-    enum CodingKeys: String, CodingKey {
-        case voiceConfig = "voice_config"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct VoiceConfig: Codable, Sendable {
@@ -69,10 +66,7 @@ public struct VoiceConfig: Codable, Sendable {
     public init(prebuiltVoiceConfig: PrebuiltVoiceConfig?) {
         self.prebuiltVoiceConfig = prebuiltVoiceConfig
     }
-
-    enum CodingKeys: String, CodingKey {
-        case prebuiltVoiceConfig = "prebuilt_voice_config"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct PrebuiltVoiceConfig: Codable, Sendable {
@@ -81,10 +75,7 @@ public struct PrebuiltVoiceConfig: Codable, Sendable {
     public init(voiceName: String) {
         self.voiceName = voiceName
     }
-
-    enum CodingKeys: String, CodingKey {
-        case voiceName = "voice_name"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 // MARK: - Generation Configuration
@@ -106,13 +97,7 @@ public struct GenerationConfig: Codable, Sendable {
         self.topK = topK
         self.maxOutputTokens = maxOutputTokens
     }
-
-    enum CodingKeys: String, CodingKey {
-        case temperature
-        case topP = "top_p"
-        case topK = "top_k"
-        case maxOutputTokens = "max_output_tokens"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 // MARK: - Client Messages (Send to Server)
@@ -143,13 +128,7 @@ public struct SetupConfig: Codable, Sendable {
         self.systemInstruction = systemInstruction
         self.tools = tools
     }
-
-    enum CodingKeys: String, CodingKey {
-        case model
-        case generationConfig = "generation_config"
-        case systemInstruction = "system_instruction"
-        case tools
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct ClientGenerationConfig: Codable, Sendable {
@@ -160,11 +139,7 @@ public struct ClientGenerationConfig: Codable, Sendable {
         self.responseModalities = responseModalities
         self.speechConfig = speechConfig
     }
-
-    enum CodingKeys: String, CodingKey {
-        case responseModalities = "response_modalities"
-        case speechConfig = "speech_config"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct SystemInstruction: Codable, Sendable {
@@ -183,11 +158,7 @@ public struct Tool: Codable, Sendable {
         self.googleSearch = googleSearch
         self.functionDeclarations = functionDeclarations
     }
-
-    enum CodingKeys: String, CodingKey {
-        case googleSearch = "google_search"
-        case functionDeclarations = "function_declarations"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct GoogleSearch: Codable, Sendable {
@@ -211,10 +182,7 @@ public struct RealtimeInputMessage: Codable, Sendable {
     public init(realtimeInput: RealtimeInput) {
         self.realtimeInput = realtimeInput
     }
-
-    enum CodingKeys: String, CodingKey {
-        case realtimeInput = "realtime_input"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct RealtimeInput: Codable, Sendable {
@@ -223,10 +191,7 @@ public struct RealtimeInput: Codable, Sendable {
     public init(mediaChunks: [MediaChunk]) {
         self.mediaChunks = mediaChunks
     }
-
-    enum CodingKeys: String, CodingKey {
-        case mediaChunks = "media_chunks"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct MediaChunk: Codable, Sendable {
@@ -237,11 +202,7 @@ public struct MediaChunk: Codable, Sendable {
         self.mimeType = mimeType
         self.data = data
     }
-
-    enum CodingKeys: String, CodingKey {
-        case mimeType = "mime_type"
-        case data
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 /// Client content message (text or end of turn)
@@ -251,10 +212,7 @@ public struct ClientContentMessage: Codable, Sendable {
     public init(clientContent: ClientContent) {
         self.clientContent = clientContent
     }
-
-    enum CodingKeys: String, CodingKey {
-        case clientContent = "client_content"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct ClientContent: Codable, Sendable {
@@ -265,11 +223,7 @@ public struct ClientContent: Codable, Sendable {
         self.turns = turns
         self.turnComplete = turnComplete
     }
-
-    enum CodingKeys: String, CodingKey {
-        case turns
-        case turnComplete = "turn_complete"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct Turn: Codable, Sendable {
@@ -290,11 +244,7 @@ public struct ContentPart: Codable, Sendable {
         self.text = text
         self.inlineData = inlineData
     }
-
-    enum CodingKeys: String, CodingKey {
-        case text
-        case inlineData = "inline_data"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct InlineData: Codable, Sendable {
@@ -305,11 +255,7 @@ public struct InlineData: Codable, Sendable {
         self.mimeType = mimeType
         self.data = data
     }
-
-    enum CodingKeys: String, CodingKey {
-        case mimeType = "mime_type"
-        case data
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 // MARK: - Server Messages (Receive from Server)
@@ -340,12 +286,7 @@ public struct ServerContent: Codable, Sendable {
     public let modelTurn: ModelTurn?
     public let turnComplete: Bool?
     public let interrupted: Bool?
-
-    enum CodingKeys: String, CodingKey {
-        case modelTurn = "model_turn"
-        case turnComplete = "turn_complete"
-        case interrupted
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct ModelTurn: Codable, Sendable {
@@ -355,11 +296,7 @@ public struct ModelTurn: Codable, Sendable {
 public struct ModelPart: Codable, Sendable {
     public let text: String?
     public let inlineData: InlineData?
-
-    enum CodingKeys: String, CodingKey {
-        case text
-        case inlineData = "inline_data"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct ToolCallMessage: Codable, Sendable {
@@ -368,10 +305,7 @@ public struct ToolCallMessage: Codable, Sendable {
 
 public struct ToolCall: Codable, Sendable {
     public let functionCalls: [FunctionCall]
-
-    enum CodingKeys: String, CodingKey {
-        case functionCalls = "function_calls"
-    }
+    // No CodingKeys needed - Swift property names are already camelCase
 }
 
 public struct FunctionCall: Codable, Sendable {

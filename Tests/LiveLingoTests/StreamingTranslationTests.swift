@@ -9,23 +9,23 @@ final class StreamingTranslationTests: XCTestCase {
     func testGeminiLiveConfigWebSocketURL() {
         let config = GeminiLiveConfig(
             apiKey: "test-api-key",
-            model: .gemini2FlashLive
+            model: .gemini25FlashNativeAudio
         )
 
         let url = config.webSocketURL
-        XCTAssertTrue(url.absoluteString.contains("v1beta"))
+        XCTAssertTrue(url.absoluteString.contains("v1alpha"))
         XCTAssertTrue(url.absoluteString.contains("BidiGenerateContent"))
         XCTAssertTrue(url.absoluteString.contains("test-api-key"))
     }
 
     func testGeminiModelRawValues() {
         XCTAssertEqual(
-            GeminiModel.gemini2FlashLive.rawValue,
-            "models/gemini-2.0-flash-live-001"
+            GeminiModel.gemini25FlashNativeAudio.rawValue,
+            "models/gemini-2.5-flash-native-audio-preview-12-2025"
         )
         XCTAssertEqual(
-            GeminiModel.gemini25FlashNativeAudio.rawValue,
-            "models/gemini-2.5-flash-preview-native-audio-dialog"
+            GeminiModel.gemini2FlashLive.rawValue,
+            "models/gemini-2.0-flash-live-001"
         )
     }
 
@@ -79,9 +79,9 @@ final class StreamingTranslationTests: XCTestCase {
         let data = try encoder.encode(message)
         let json = String(data: data, encoding: .utf8)!
 
-        XCTAssertTrue(json.contains("realtime_input"))
-        XCTAssertTrue(json.contains("media_chunks"))
-        XCTAssertTrue(json.contains("mime_type"))
+        XCTAssertTrue(json.contains("realtimeInput"))
+        XCTAssertTrue(json.contains("mediaChunks"))
+        XCTAssertTrue(json.contains("mimeType"))
     }
 
     func testSetupMessageEncoding() throws {
@@ -106,9 +106,9 @@ final class StreamingTranslationTests: XCTestCase {
         let json = String(data: data, encoding: .utf8)!
 
         XCTAssertTrue(json.contains("setup"))
-        XCTAssertTrue(json.contains("generation_config"))
-        XCTAssertTrue(json.contains("response_modalities"))
-        XCTAssertTrue(json.contains("voice_name"))
+        XCTAssertTrue(json.contains("generationConfig"))
+        XCTAssertTrue(json.contains("responseModalities"))
+        XCTAssertTrue(json.contains("voiceName"))
         XCTAssertTrue(json.contains("Aoede"))
     }
 
@@ -129,12 +129,12 @@ final class StreamingTranslationTests: XCTestCase {
         let json = """
         {
             "serverContent": {
-                "model_turn": {
+                "modelTurn": {
                     "parts": [
                         {"text": "Hello, how are you?"}
                     ]
                 },
-                "turn_complete": true
+                "turnComplete": true
             }
         }
         """
