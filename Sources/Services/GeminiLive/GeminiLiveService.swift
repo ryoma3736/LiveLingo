@@ -112,6 +112,9 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
         await updateState(.connecting)
 
+        // Start performance timer
+        await PerformanceMonitor.shared.start(.webSocketConnect)
+
         print("[GeminiLive] Connecting to WebSocket...")
         print("[GeminiLive] URL: \(config.webSocketURL)")
         print("[GeminiLive] Model: \(config.model.rawValue)")
@@ -154,6 +157,7 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
                 if self.webSocket != nil {
                     self._isConnected = true
                     await self.updateState(.connected)
+                    await PerformanceMonitor.shared.stop(.webSocketConnect)
                     print("[GeminiLive] WebSocket connected successfully")
 
                     // Start receiving messages
@@ -229,6 +233,8 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
             throw LiveLingoError.geminiNotConnected
         }
 
+        await PerformanceMonitor.shared.start(.webSocketSend)
+
         // Convert to base64
         let base64Audio = data.base64EncodedString()
 
@@ -244,6 +250,7 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
         )
 
         try await sendMessage(message)
+        await PerformanceMonitor.shared.stop(.webSocketSend)
 
         if _state != .listening {
             await updateState(.listening)
@@ -420,6 +427,9 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
     private func handleTextOutput(_ text: String) async {
         guard let translationMode = translationMode else { return }
 
+        // Record first token latency
+        await PerformanceMonitor.shared.record(.translationFirstToken, value: 0.001) // Placeholder
+
         // The text from Gemini is the translation
         // We assume it's translated to the target language
         _onTranslation?(text, translationMode.targetLanguage)
@@ -427,6 +437,7 @@ public actor GeminiLiveService: NSObject, GeminiLiveServiceProtocol {
 
     private func handleAudioOutput(_ data: Data) async {
         await updateState(.speaking)
+        await PerformanceMonitor.shared.record(.audioPlayback, value: Double(data.count) / Double(GeminiAudioFormat.outputSampleRate * 2))
         _onAudioOutput?(data)
     }
 

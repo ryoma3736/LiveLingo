@@ -36,12 +36,7 @@ let package = Package(
         .testTarget(
             name: "LiveLingoTests",
             dependencies: ["LiveLingo"],
-            path: "Tests/UnitTests"
-        ),
-        .testTarget(
-            name: "LiveLingoIntegrationTests",
-            dependencies: ["LiveLingo"],
-            path: "Tests/IntegrationTests"
+            path: "Tests/LiveLingoTests"
         ),
     ]
 )
