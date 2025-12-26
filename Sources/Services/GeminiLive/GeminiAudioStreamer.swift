@@ -103,12 +103,15 @@ public actor GeminiAudioStreamer {
     // MARK: - Audio Playback
 
     /// Play audio data received from Gemini
+    /// Optimized for low-latency: starts playback after 2048 bytes (~42ms at 24kHz)
     public func playAudio(_ data: Data) async throws {
         // Accumulate data
         outputBuffer.append(data)
 
         // Play when we have enough data
-        if outputBuffer.count >= GeminiAudioFormat.chunkSize * 4 {
+        // Reduced from 4x to 2x chunk size for lower latency (85ms → 42ms)
+        // 2048 bytes at 24kHz 16-bit mono = ~42ms
+        if outputBuffer.count >= GeminiAudioFormat.chunkSize * 2 {
             try await playBuffer()
         }
     }
@@ -411,6 +414,10 @@ public actor LiveTranslationService {
     // Current streaming translation buffer
     private var currentStreamingText: String = ""
 
+    // Text finalization timeout (3 seconds of silence = finalize)
+    private var textFinalizationTask: Task<Void, Never>?
+    private let textFinalizationTimeout: UInt64 = 3_000_000_000 // 3 seconds in nanoseconds
+
     public init(keychain: KeychainManagerProtocol = KeychainManager.shared) {
         self.geminiService = GeminiLiveService()
         self.audioStreamer = GeminiAudioStreamer()
@@ -497,6 +504,11 @@ public actor LiveTranslationService {
         guard isActive else { return }
 
         print("[LiveTranslation] Stopping session...")
+
+        // Cancel text finalization task
+        textFinalizationTask?.cancel()
+        textFinalizationTask = nil
+
         await audioStreamer.stopCapture()
         await audioStreamer.stopPlayback()
         await geminiService.disconnect()
@@ -566,6 +578,64 @@ public actor LiveTranslationService {
     private func appendStreamingText(_ text: String) {
         currentStreamingText += text
         onStreamingText?(currentStreamingText)
+
+        // Schedule timeout-based finalization
+        // If no new text arrives for 3 seconds, finalize the current text
+        scheduleTextFinalization()
+    }
+
+    /// Schedule a timeout to finalize streaming text after silence period
+    private func scheduleTextFinalization() {
+        // Cancel any existing finalization task
+        textFinalizationTask?.cancel()
+
+        // Capture timeout value before Task to avoid actor isolation issues
+        let timeout = textFinalizationTimeout
+
+        textFinalizationTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: timeout)
+
+                // If we get here, 3 seconds passed without new text
+                guard let self = self else { return }
+
+                // Check and finalize within actor context
+                await self.checkAndFinalizeText()
+            } catch {
+                // Task was cancelled - new text arrived, which is fine
+            }
+        }
+    }
+
+    /// Check if text needs finalization and finalize if so (actor-isolated)
+    private func checkAndFinalizeText() async {
+        guard !currentStreamingText.isEmpty else { return }
+
+        print("[LiveTranslation] Auto-finalizing text after 3s silence: \(currentStreamingText.prefix(50))...")
+
+        // Create transcript item (we don't have language info here, so use defaults)
+        // The actual finalization with proper language info happens in handleStateChange
+        // This is a fallback for bidirectional mode where turnComplete might not fire
+
+        // Just mark it as finalized by clearing after notifying
+        // The UI will have already shown the text via onStreamingText
+        await forceTextFinalization()
+    }
+
+    /// Force finalize the current streaming text (timeout fallback)
+    private func forceTextFinalization() async {
+        guard !currentStreamingText.isEmpty else { return }
+
+        // Flush any remaining audio
+        do {
+            try await audioStreamer.flushAudio()
+        } catch {
+            print("[LiveTranslation] Failed to flush audio on force finalization: \(error)")
+        }
+
+        // Clear the text buffer (UI already has the text via onStreamingText)
+        currentStreamingText = ""
+        print("[LiveTranslation] Text buffer cleared after force finalization")
     }
 
     private func handleStateChange(_ state: GeminiLiveState, sourceLanguage: SupportedLanguage, targetLanguage: SupportedLanguage) {
@@ -577,6 +647,10 @@ public actor LiveTranslationService {
 
         case .listening:
             // Listening state - either initial or after turn complete
+            // Cancel timeout-based finalization since turnComplete fired
+            textFinalizationTask?.cancel()
+            textFinalizationTask = nil
+
             // Finalize any streaming text if present (turn complete scenario)
             if !currentStreamingText.isEmpty {
                 print("[LiveTranslation] Finalizing streaming text: \(currentStreamingText.prefix(50))...")

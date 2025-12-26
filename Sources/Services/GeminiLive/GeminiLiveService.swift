@@ -124,6 +124,8 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
 
     // Connection management
     private var connectionContinuation: CheckedContinuation<Void, Error>?
+    private var setupContinuation: CheckedContinuation<Void, Error>?
+    private var setupTimeoutTask: Task<Void, Never>?
     private var reconnectAttempts: Int = 0
     private let maxReconnectAttempts: Int = 3
     private var heartbeatTask: Task<Void, Never>?
@@ -246,12 +248,18 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
         // Connection is now open, send setup message
         try await sendSetupMessage()
 
-        // Wait for setupComplete response (with timeout)
-        let startTime = Date()
-        while !_isSessionActive {
-            try await Task.sleep(nanoseconds: 100_000_000) // 100ms
-            if Date().timeIntervalSince(startTime) > 15 {
-                throw LiveLingoError.geminiSessionFailed(reason: "Setup timeout - no response from server")
+        // Wait for setupComplete response using event-driven approach (not polling)
+        // This eliminates the 100ms polling delay
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.setupContinuation = continuation
+
+            // Set timeout task
+            self.setupTimeoutTask = Task {
+                try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 seconds
+                if let cont = self.setupContinuation {
+                    self.setupContinuation = nil
+                    cont.resume(throwing: LiveLingoError.geminiSessionFailed(reason: "Setup timeout - no response from server"))
+                }
             }
         }
 
@@ -343,6 +351,8 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
         heartbeatTask = nil
         receiveTask?.cancel()
         receiveTask = nil
+        setupTimeoutTask?.cancel()
+        setupTimeoutTask = nil
 
         // Clear delegate callbacks
         delegateHandler?.clearCallbacks()
@@ -351,6 +361,12 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
         // Cancel connection continuation if pending
         if let continuation = connectionContinuation {
             connectionContinuation = nil
+            continuation.resume(throwing: LiveLingoError.geminiNotConnected)
+        }
+
+        // Cancel setup continuation if pending
+        if let continuation = setupContinuation {
+            setupContinuation = nil
             continuation.resume(throwing: LiveLingoError.geminiNotConnected)
         }
 
@@ -534,6 +550,16 @@ public actor GeminiLiveService: GeminiLiveServiceProtocol {
     private func handleSetupComplete(_ message: SetupCompleteMessage) async {
         print("[GeminiLive] Setup complete - session is now active")
         _isSessionActive = true
+
+        // Cancel timeout task and resume continuation (event-driven completion)
+        setupTimeoutTask?.cancel()
+        setupTimeoutTask = nil
+
+        if let continuation = setupContinuation {
+            setupContinuation = nil
+            continuation.resume()
+        }
+
         await updateState(.ready)
     }
 

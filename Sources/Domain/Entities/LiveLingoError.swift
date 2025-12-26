@@ -180,12 +180,88 @@ public enum LiveLingoError: Error, LocalizedError, Sendable {
             return "Please check your internet connection and try again."
         case .sessionExpired, .authenticationRequired:
             return "Please sign in again."
-        case .translationRateLimited:
+        case .translationRateLimited, .networkRateLimited:
             return "Please wait a moment and try again."
+        case .geminiConnectionFailed, .geminiSessionFailed:
+            return "Try reconnecting or check your network."
+        case .audioInputUnavailable:
+            return "Please check microphone permissions in Settings."
+        case .audioInterrupted:
+            return "Tap the microphone to start again."
+        case .networkTimeout:
+            return "Check your connection and try again."
+        case .apiKeyMissing:
+            return "Please configure the API key in settings."
         default:
             return nil
         }
     }
+
+    /// Whether this error is recoverable by retrying
+    public var isRetryable: Bool {
+        switch self {
+        case .networkTimeout, .networkUnavailable, .translationTimeout:
+            return true
+        case .geminiConnectionFailed, .geminiSessionFailed:
+            return true
+        case .audioInterrupted:
+            return true
+        case .networkRateLimited, .translationRateLimited:
+            return true  // Retryable after delay
+        case .sttRecognitionFailed:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Recommended retry delay in seconds (for rate-limited errors)
+    public var retryDelay: TimeInterval? {
+        switch self {
+        case .networkRateLimited, .translationRateLimited:
+            return 5.0
+        case .networkTimeout:
+            return 1.0
+        case .geminiConnectionFailed, .geminiSessionFailed:
+            return 2.0
+        default:
+            return nil
+        }
+    }
+
+    /// Action type for error recovery
+    public var recoveryAction: ErrorRecoveryAction {
+        switch self {
+        case .sttPermissionDenied, .permissionDenied:
+            return .openSettings
+        case .networkUnavailable:
+            return .checkNetwork
+        case .geminiConnectionFailed, .geminiSessionFailed, .networkTimeout:
+            return .retry
+        case .audioInterrupted:
+            return .restart
+        case .translationRateLimited, .networkRateLimited:
+            return .waitAndRetry
+        case .apiKeyMissing:
+            return .configure
+        case .sessionExpired, .authenticationRequired:
+            return .signIn
+        default:
+            return .none
+        }
+    }
+}
+
+/// Action types for error recovery
+public enum ErrorRecoveryAction: String, Sendable {
+    case none
+    case retry
+    case waitAndRetry
+    case restart
+    case openSettings
+    case checkNetwork
+    case configure
+    case signIn
 }
 
 /// Permission types

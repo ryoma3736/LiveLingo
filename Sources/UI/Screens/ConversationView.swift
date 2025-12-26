@@ -1,6 +1,61 @@
 import SwiftUI
 import Dependencies
 
+// MARK: - Typewriter Text Animation
+
+/// Displays text with a typewriter animation effect for better perceived performance
+struct TypewriterText: View {
+    let text: String
+    let speed: Double
+
+    @State private var displayedText: String = ""
+    @State private var animationTask: Task<Void, Never>?
+
+    init(_ text: String, speed: Double = 0.02) {
+        self.text = text
+        self.speed = speed
+    }
+
+    var body: some View {
+        Text(displayedText)
+            .onChange(of: text) { oldValue, newValue in
+                animateText(from: oldValue, to: newValue)
+            }
+            .onAppear {
+                displayedText = text
+            }
+    }
+
+    private func animateText(from oldText: String, to newText: String) {
+        // Cancel any existing animation
+        animationTask?.cancel()
+
+        // If new text is shorter or completely different, just show it
+        if newText.count < oldText.count || !newText.hasPrefix(oldText) {
+            displayedText = newText
+            return
+        }
+
+        // Animate only the new characters
+        let startIndex = oldText.count
+        displayedText = oldText
+
+        animationTask = Task { @MainActor in
+            for i in startIndex..<newText.count {
+                guard !Task.isCancelled else { return }
+
+                // Small delay between characters
+                try? await Task.sleep(nanoseconds: UInt64(speed * 1_000_000_000))
+
+                guard !Task.isCancelled else { return }
+
+                let index = newText.index(newText.startIndex, offsetBy: i + 1)
+                displayedText = String(newText[..<index])
+            }
+        }
+    }
+}
+
 // MARK: - Conversation View
 
 /// Main conversation screen for real-time translation
@@ -193,7 +248,8 @@ public struct ConversationView: View {
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }
 
-            Text(viewModel.currentTranslationText)
+            // Use TypewriterText for smooth character-by-character animation
+            TypewriterText(viewModel.currentTranslationText, speed: 0.015)
                 .font(DesignSystem.Typography.transcriptText)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .padding(DesignSystem.Spacing.md)
@@ -202,7 +258,6 @@ public struct ConversationView: View {
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-        .animation(.easeInOut(duration: 0.2), value: viewModel.currentTranslationText)
     }
 
     /// Live recognition bubble (batch mode)
@@ -257,9 +312,10 @@ public struct ConversationView: View {
                         : DesignSystem.Colors.textSecondary)
                 }
 
-                // Main recording button
+                // Main recording button with integrated waveform
                 RecordingButton(
-                    isRecording: $viewModel.isRecognizing
+                    isRecording: $viewModel.isRecognizing,
+                    audioLevels: viewModel.audioLevels
                 ) {
                     Task {
                         await viewModel.toggleRecording()
@@ -589,14 +645,38 @@ public final class ConversationViewModel: ObservableObject {
         isRecognizing = false
 
         if let lingoError = error as? LiveLingoError {
-            errorMessage = lingoError.errorDescription ?? "Unknown error"
-            canRetry = true
+            // Use enhanced error properties
+            var message = lingoError.errorDescription ?? "Unknown error"
+            if let suggestion = lingoError.recoverySuggestion {
+                message += "\n\n\(suggestion)"
+            }
+            errorMessage = message
+            canRetry = lingoError.isRetryable
+
+            // Schedule auto-retry for certain errors
+            if lingoError.isRetryable, let delay = lingoError.retryDelay {
+                scheduleAutoRetry(after: delay, for: lingoError)
+            }
         } else {
             errorMessage = error.localizedDescription
             canRetry = false
         }
 
         showError = true
+    }
+
+    /// Schedules an automatic retry after the specified delay
+    private func scheduleAutoRetry(after delay: TimeInterval, for error: LiveLingoError) {
+        // Only auto-retry for network-related transient errors
+        guard error.recoveryAction == .retry || error.recoveryAction == .waitAndRetry else { return }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            // Only retry if user hasn't dismissed the error or started manually
+            guard !isRecognizing else { return }
+            print("[ConversationVM] Auto-retrying after \(delay)s...")
+            await startRecording()
+        }
     }
 }
 
