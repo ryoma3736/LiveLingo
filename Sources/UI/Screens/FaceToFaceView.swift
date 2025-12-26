@@ -26,14 +26,17 @@ public struct FaceToFaceView: View {
     }
 
     public var body: some View {
-        Group {
-            if isLandscape {
-                landscapeLayout
-            } else {
-                portraitLayout
+        GeometryReader { geometry in
+            Group {
+                if isLandscape {
+                    landscapeLayout
+                } else {
+                    portraitLayout
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .ignoresSafeArea(.container, edges: isLandscape ? .all : .top)
+        .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.3), value: isLandscape)
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -282,14 +285,16 @@ private struct TranslationBubble: View {
     let text: String
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 17))
-            .foregroundColor(DesignSystem.FaceToFace.translationText)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DesignSystem.FaceToFace.translationBubble)
-            .cornerRadius(12)
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(text)
+                .font(.system(size: 17))
+                .foregroundColor(DesignSystem.FaceToFace.translationText)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DesignSystem.FaceToFace.translationBubble)
+                .cornerRadius(12)
+        }
     }
 }
 
@@ -299,14 +304,16 @@ private struct OriginalBubble: View {
     let text: String
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 17))
-            .foregroundColor(DesignSystem.FaceToFace.originalText)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DesignSystem.FaceToFace.originalBubble)
-            .cornerRadius(12)
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(text)
+                .font(.system(size: 17))
+                .foregroundColor(DesignSystem.FaceToFace.originalText)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DesignSystem.FaceToFace.originalBubble)
+                .cornerRadius(12)
+        }
     }
 }
 
@@ -316,13 +323,15 @@ private struct LeftBubble: View {
     let text: String
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 17))
-            .foregroundColor(DesignSystem.FaceToFace.originalText)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(DesignSystem.FaceToFace.leftPanelBubble)
-            .cornerRadius(12)
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(text)
+                .font(.system(size: 17))
+                .foregroundColor(DesignSystem.FaceToFace.originalText)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(DesignSystem.FaceToFace.leftPanelBubble)
+                .cornerRadius(12)
+        }
     }
 }
 
@@ -332,13 +341,15 @@ private struct RightBubble: View {
     let text: String
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 17))
-            .foregroundColor(DesignSystem.FaceToFace.originalText)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(DesignSystem.FaceToFace.rightPanelBubble)
-            .cornerRadius(12)
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(text)
+                .font(.system(size: 17))
+                .foregroundColor(DesignSystem.FaceToFace.originalText)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(DesignSystem.FaceToFace.rightPanelBubble)
+                .cornerRadius(12)
+        }
     }
 }
 

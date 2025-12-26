@@ -48,14 +48,14 @@ public struct FlagLanguageSelector: View {
     private var horizontalLayout: some View {
         HStack(spacing: 8) {
             Text(sourceLanguage.flagEmoji)
-                .font(.title2)
+                .font(.system(size: 24))
 
             Text("/")
                 .font(.body)
                 .foregroundColor(.gray)
 
             Text(targetLanguage.flagEmoji)
-                .font(.title2)
+                .font(.system(size: 24))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -68,14 +68,14 @@ public struct FlagLanguageSelector: View {
     private var verticalLayout: some View {
         VStack(spacing: 4) {
             Text(sourceLanguage.flagEmoji)
-                .font(.title2)
+                .font(.system(size: 24))
 
             Text("/")
                 .font(.caption)
                 .foregroundColor(.gray)
 
             Text(targetLanguage.flagEmoji)
-                .font(.title2)
+                .font(.system(size: 24))
         }
         .padding(12)
         .background(DesignSystem.FaceToFace.buttonBackground)
