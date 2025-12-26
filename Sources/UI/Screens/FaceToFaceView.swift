@@ -8,6 +8,7 @@ import Dependencies
 public struct FaceToFaceView: View {
     @StateObject private var viewModel: ConversationViewModel
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.adaptiveLayout) private var layout
 
     @State private var showMenu = false
     @State private var showSettings = false
@@ -31,11 +32,12 @@ public struct FaceToFaceView: View {
                 if isLandscape {
                     landscapeLayout
                 } else {
-                    portraitLayout
+                    portraitLayout(geometry: geometry)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .withDeviceSizeDetection()
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.3), value: isLandscape)
         .sheet(isPresented: $showSettings) {
@@ -61,19 +63,25 @@ public struct FaceToFaceView: View {
 
     // MARK: - Portrait Layout
 
-    private var portraitLayout: some View {
-        VStack(spacing: 0) {
+    private func portraitLayout(geometry: GeometryProxy) -> some View {
+        let totalHeight = geometry.size.height
+        let controlBarHeight = layout.controlBarHeight
+        let panelHeight = (totalHeight - controlBarHeight) / 2
+
+        return VStack(spacing: 0) {
             // Top panel - Translation (180° rotated for other person)
             translationPanel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .frame(height: panelHeight * layout.translationPanelRatio * 2)
 
             // Control bar (horizontal)
             horizontalControlBar
-                .frame(height: 80)
+                .frame(height: controlBarHeight)
 
             // Bottom panel - Original speech (normal orientation)
             originalSpeechPanel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .frame(height: panelHeight * (1 - layout.translationPanelRatio) * 2)
         }
     }
 
@@ -87,7 +95,7 @@ public struct FaceToFaceView: View {
 
             // Vertical control bar
             verticalControlBar
-                .frame(width: 80)
+                .frame(width: layout.controlBarWidth)
 
             // Right panel - Source language (e.g., Japanese)
             rightLanguagePanel
@@ -100,7 +108,7 @@ public struct FaceToFaceView: View {
     private var translationPanel: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: layout.bubbleSpacing) {
                     ForEach(viewModel.transcripts.reversed()) { item in
                         TranslationBubble(text: item.translatedText)
                             .rotationEffect(.degrees(180))
@@ -115,7 +123,7 @@ public struct FaceToFaceView: View {
                             .id("streaming-translation")
                     }
                 }
-                .padding()
+                .padding(layout.horizontalPadding)
             }
             .rotationEffect(.degrees(180))  // Entire panel rotated
             .background(DesignSystem.FaceToFace.translationBackground)
@@ -134,7 +142,7 @@ public struct FaceToFaceView: View {
     private var originalSpeechPanel: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: layout.bubbleSpacing) {
                     ForEach(viewModel.transcripts) { item in
                         OriginalBubble(text: item.originalText)
                             .id("original-\(item.id)")
@@ -147,7 +155,7 @@ public struct FaceToFaceView: View {
                             .id("streaming-original")
                     }
                 }
-                .padding()
+                .padding(layout.horizontalPadding)
             }
             .background(DesignSystem.FaceToFace.originalBackground)
             .onChange(of: viewModel.transcripts.count) { _, _ in
@@ -165,7 +173,7 @@ public struct FaceToFaceView: View {
     private var leftLanguagePanel: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: layout.bubbleSpacing) {
                     ForEach(viewModel.transcripts) { item in
                         LeftBubble(text: item.translatedText)
                             .id("left-\(item.id)")
@@ -177,7 +185,7 @@ public struct FaceToFaceView: View {
                             .id("left-streaming")
                     }
                 }
-                .padding()
+                .padding(layout.horizontalPadding)
             }
             .background(Color.white)
             .onChange(of: viewModel.transcripts.count) { _, _ in
@@ -195,7 +203,7 @@ public struct FaceToFaceView: View {
     private var rightLanguagePanel: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .trailing, spacing: 12) {
+                LazyVStack(alignment: .trailing, spacing: layout.bubbleSpacing) {
                     ForEach(viewModel.transcripts) { item in
                         RightBubble(text: item.originalText)
                             .id("right-\(item.id)")
@@ -207,7 +215,7 @@ public struct FaceToFaceView: View {
                             .id("right-streaming")
                     }
                 }
-                .padding()
+                .padding(layout.horizontalPadding)
             }
             .background(Color.white)
             .onChange(of: viewModel.transcripts.count) { _, _ in
@@ -283,17 +291,18 @@ public struct FaceToFaceView: View {
 
 private struct TranslationBubble: View {
     let text: String
+    @Environment(\.adaptiveLayout) private var layout
 
     var body: some View {
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Text(text)
-                .font(.system(size: 17))
+                .font(.system(size: layout.primaryFontSize))
                 .foregroundColor(DesignSystem.FaceToFace.translationText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.vertical, layout.verticalPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(DesignSystem.FaceToFace.translationBubble)
-                .cornerRadius(12)
+                .cornerRadius(layout.bubbleCornerRadius)
         }
     }
 }
@@ -302,17 +311,18 @@ private struct TranslationBubble: View {
 
 private struct OriginalBubble: View {
     let text: String
+    @Environment(\.adaptiveLayout) private var layout
 
     var body: some View {
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Text(text)
-                .font(.system(size: 17))
+                .font(.system(size: layout.primaryFontSize))
                 .foregroundColor(DesignSystem.FaceToFace.originalText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.vertical, layout.verticalPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(DesignSystem.FaceToFace.originalBubble)
-                .cornerRadius(12)
+                .cornerRadius(layout.bubbleCornerRadius)
         }
     }
 }
@@ -321,16 +331,17 @@ private struct OriginalBubble: View {
 
 private struct LeftBubble: View {
     let text: String
+    @Environment(\.adaptiveLayout) private var layout
 
     var body: some View {
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Text(text)
-                .font(.system(size: 17))
+                .font(.system(size: layout.primaryFontSize))
                 .foregroundColor(DesignSystem.FaceToFace.originalText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.vertical, layout.verticalPadding)
                 .background(DesignSystem.FaceToFace.leftPanelBubble)
-                .cornerRadius(12)
+                .cornerRadius(layout.bubbleCornerRadius)
         }
     }
 }
@@ -339,16 +350,17 @@ private struct LeftBubble: View {
 
 private struct RightBubble: View {
     let text: String
+    @Environment(\.adaptiveLayout) private var layout
 
     var body: some View {
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Text(text)
-                .font(.system(size: 17))
+                .font(.system(size: layout.primaryFontSize))
                 .foregroundColor(DesignSystem.FaceToFace.originalText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.vertical, layout.verticalPadding)
                 .background(DesignSystem.FaceToFace.rightPanelBubble)
-                .cornerRadius(12)
+                .cornerRadius(layout.bubbleCornerRadius)
         }
     }
 }

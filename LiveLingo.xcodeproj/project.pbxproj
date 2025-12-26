@@ -53,6 +53,7 @@
 		E0C9FB2784A32DA7049091E8 /* Collections in Frameworks */ = {isa = PBXBuildFile; productRef = 66DB5D38941714115AE8FAC9 /* Collections */; };
 		E6AE04672D147A9473BC14CD /* NetworkClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27589FEB2B22FFA028BDF109 /* NetworkClient.swift */; };
 		EB5AE888CBC23DFFF9F20E5B /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F24C1DD0A12651E5F16C8B6E /* DesignSystem.swift */; };
+		D3V1C3S1Z3BU1LD000001A1 /* DeviceSize.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3V1C3S1Z3F1L3R3F000001 /* DeviceSize.swift */; };
 		EBEE667960E8F7C086FCFB08 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14696E323BF2A2999637F4A9 /* HistoryView.swift */; };
 		F4D68C4C9EB39F98AE9F6337 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E371F082BE5EBD05DF798A45 /* AudioSessionManager.swift */; };
 		F9AAA247409C9812972334E9 /* GeminiLiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D94C4B74A9A33E8FCEF86479 /* GeminiLiveService.swift */; };
@@ -120,6 +121,7 @@
 		E54967143C34624A349C9CBA /* LiveLingoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LiveLingoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EED207F2A1C2297B84DE649C /* AppleTranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleTranslationService.swift; sourceTree = "<group>"; };
 		F24C1DD0A12651E5F16C8B6E /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		D3V1C3S1Z3F1L3R3F000001 /* DeviceSize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSize.swift; sourceTree = "<group>"; };
 		F29E738DFF793F050A07B9EF /* LanguageDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetector.swift; sourceTree = "<group>"; };
 		F5EB00EA3C797AD3524FEE5B /* RecordingButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingButton.swift; sourceTree = "<group>"; };
 		F96CEFB03BA49352BA04ED50 /* SpeakerDiarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerDiarizer.swift; sourceTree = "<group>"; };
@@ -406,6 +408,7 @@
 			isa = PBXGroup;
 			children = (
 				F24C1DD0A12651E5F16C8B6E /* DesignSystem.swift */,
+				D3V1C3S1Z3F1L3R3F000001 /* DeviceSize.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -562,6 +565,7 @@
 				FLAG1LANG01234567890ABCD /* FlagLanguageSelector.swift in Sources */,
 				5F689126A4AEF91A4AF1301C /* DependencyContainer.swift in Sources */,
 				EB5AE888CBC23DFFF9F20E5B /* DesignSystem.swift in Sources */,
+				D3V1C3S1Z3BU1LD000001A1 /* DeviceSize.swift in Sources */,
 				60A64585AA8A4F6450F67D9B /* GeminiAudioStreamer.swift in Sources */,
 				FC7078337B4B7A020EC0C7DF /* GeminiLiveModels.swift in Sources */,
 				F9AAA247409C9812972334E9 /* GeminiLiveService.swift in Sources */,

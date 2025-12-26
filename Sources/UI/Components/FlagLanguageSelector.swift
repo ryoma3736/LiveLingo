@@ -8,6 +8,7 @@ import UIKit
 public struct FlagLanguageSelector: View {
     @Binding public var sourceLanguage: SupportedLanguage
     @Binding public var targetLanguage: SupportedLanguage
+    @Environment(\.adaptiveLayout) private var layout
 
     public var isVertical: Bool = false
     public var onSwap: () -> Void
@@ -48,19 +49,19 @@ public struct FlagLanguageSelector: View {
     private var horizontalLayout: some View {
         HStack(spacing: 8) {
             Text(sourceLanguage.flagEmoji)
-                .font(.system(size: 24))
+                .font(.system(size: layout.flagEmojiSize))
 
             Text("/")
-                .font(.body)
+                .font(.system(size: layout.secondaryFontSize))
                 .foregroundColor(.gray)
 
             Text(targetLanguage.flagEmoji)
-                .font(.system(size: 24))
+                .font(.system(size: layout.flagEmojiSize))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, layout.buttonHorizontalPadding)
+        .padding(.vertical, layout.buttonVerticalPadding)
         .background(DesignSystem.FaceToFace.buttonBackground)
-        .cornerRadius(24)
+        .cornerRadius(layout.buttonCornerRadius)
     }
 
     // MARK: - Vertical Layout (Landscape mode)
@@ -68,16 +69,16 @@ public struct FlagLanguageSelector: View {
     private var verticalLayout: some View {
         VStack(spacing: 4) {
             Text(sourceLanguage.flagEmoji)
-                .font(.system(size: 24))
+                .font(.system(size: layout.flagEmojiSize))
 
             Text("/")
-                .font(.caption)
+                .font(.system(size: layout.secondaryFontSize - 2))
                 .foregroundColor(.gray)
 
             Text(targetLanguage.flagEmoji)
-                .font(.system(size: 24))
+                .font(.system(size: layout.flagEmojiSize))
         }
-        .padding(12)
+        .padding(layout.verticalPadding)
         .background(DesignSystem.FaceToFace.buttonBackground)
         .clipShape(Circle())
     }
@@ -89,6 +90,7 @@ public struct FlagLanguageSelector: View {
 public struct FaceToFaceStopButton: View {
     public var isRecording: Bool
     public var onTap: () -> Void
+    @Environment(\.adaptiveLayout) private var layout
 
     private let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
 
@@ -104,16 +106,16 @@ public struct FaceToFaceStopButton: View {
         }) {
             HStack(spacing: 8) {
                 Image(systemName: isRecording ? DesignSystem.Icons.stopSquare : DesignSystem.Icons.microphone)
-                    .font(.body)
+                    .font(.system(size: layout.buttonFontSize))
 
                 Text(isRecording ? "停止" : "開始")
-                    .font(.body.weight(.medium))
+                    .font(.system(size: layout.buttonFontSize, weight: .medium))
             }
             .foregroundColor(DesignSystem.FaceToFace.tealAccent)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, layout.buttonHorizontalPadding)
+            .padding(.vertical, layout.buttonVerticalPadding)
             .background(Color.white)
-            .cornerRadius(24)
+            .cornerRadius(layout.buttonCornerRadius)
             .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
@@ -128,6 +130,7 @@ public struct FaceToFaceStopButton: View {
 /// Mute button for Face-to-Face translation
 public struct FaceToFaceMuteButton: View {
     @Binding public var isMuted: Bool
+    @Environment(\.adaptiveLayout) private var layout
 
     private let impactFeedback = UIImpactFeedbackGenerator(style: .light)
 
@@ -141,9 +144,9 @@ public struct FaceToFaceMuteButton: View {
             isMuted.toggle()
         }) {
             Image(systemName: isMuted ? DesignSystem.Icons.speakerSlash : DesignSystem.Icons.speaker)
-                .font(.title3)
+                .font(.system(size: layout.buttonFontSize + 2))
                 .foregroundColor(isMuted ? DesignSystem.FaceToFace.muteActiveColor : DesignSystem.FaceToFace.tealAccent)
-                .frame(width: 48, height: 48)
+                .frame(width: layout.circularButtonSize, height: layout.circularButtonSize)
                 .background(DesignSystem.FaceToFace.buttonBackground)
                 .clipShape(Circle())
         }
@@ -159,6 +162,7 @@ public struct FaceToFaceMuteButton: View {
 /// Menu button for Face-to-Face translation
 public struct FaceToFaceMenuButton: View {
     public var onTap: () -> Void
+    @Environment(\.adaptiveLayout) private var layout
 
     private let impactFeedback = UIImpactFeedbackGenerator(style: .light)
 
@@ -172,9 +176,9 @@ public struct FaceToFaceMenuButton: View {
             onTap()
         }) {
             Image(systemName: DesignSystem.Icons.grid)
-                .font(.title3)
+                .font(.system(size: layout.buttonFontSize + 2))
                 .foregroundColor(DesignSystem.FaceToFace.tealAccent)
-                .frame(width: 48, height: 48)
+                .frame(width: layout.circularButtonSize, height: layout.circularButtonSize)
                 .background(DesignSystem.FaceToFace.buttonBackground)
                 .clipShape(Circle())
         }
