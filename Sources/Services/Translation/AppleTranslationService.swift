@@ -2,10 +2,7 @@ import Foundation
 import NaturalLanguage
 
 // MARK: - Gemini API Configuration (iOS 16 compatibility)
-
-private enum GeminiConfig {
-    static let apiKey = "AIzaSyBG9AiW1hcAPyN0b1PbTLRqAjH-Ri9hZPE"
-}
+// ⚠️ SECURITY: API key is stored in Keychain, not hardcoded
 
 // MARK: - Apple Translation Service
 
@@ -116,8 +113,9 @@ public actor AppleTranslationService: TranslationServiceProtocol {
         from sourceLanguage: SupportedLanguage,
         to targetLanguage: SupportedLanguage
     ) async throws -> String {
-        let apiKey = GeminiConfig.apiKey
-        guard !apiKey.isEmpty && apiKey != "YOUR_API_KEY_HERE" else {
+        // Get API key from Keychain (secure storage)
+        guard let apiKey = try? KeychainManager.shared.loadString(key: .geminiAPIKey),
+              !apiKey.isEmpty else {
             throw LiveLingoError.apiKeyMissing(service: "Gemini")
         }
 

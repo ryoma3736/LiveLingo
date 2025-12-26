@@ -437,12 +437,9 @@ public actor LiveTranslationService {
             throw LiveLingoError.sttAlreadyRecognizing
         }
 
-        // Get API key from configuration or keychain
+        // Get API key from Keychain (secure storage)
         let apiKey: String
-        let configuredKey = "AIzaSyBG9AiW1hcAPyN0b1PbTLRqAjH-Ri9hZPE" // Gemini API Key
-        if !configuredKey.isEmpty && configuredKey != "YOUR_API_KEY_HERE" {
-            apiKey = configuredKey
-        } else if let keychainKey = try? keychain.loadString(key: .openAIAPIKey) {
+        if let keychainKey = try? keychain.loadString(key: .geminiAPIKey), !keychainKey.isEmpty {
             apiKey = keychainKey
         } else {
             throw LiveLingoError.apiKeyMissing(service: "Gemini")

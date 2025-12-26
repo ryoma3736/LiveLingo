@@ -263,13 +263,42 @@ public struct VoiceSelectionView: View {
 public struct APIKeySettingsView: View {
     @ObservedObject public var viewModel: SettingsViewModel
 
+    @State private var geminiKey = ""
     @State private var openAIKey = ""
     @State private var anthropicKey = ""
     @State private var coeFontKey = ""
     @State private var showingKey: String?
+    @State private var showSaveSuccess = false
+    @State private var hasGeminiKey = false
 
     public var body: some View {
         List {
+            // Gemini API Key (Required for main functionality)
+            Section {
+                SecureInputField(
+                    title: "Gemini API Key (Required)",
+                    text: $geminiKey,
+                    isRevealed: showingKey == "gemini"
+                ) {
+                    showingKey = showingKey == "gemini" ? nil : "gemini"
+                }
+
+                if hasGeminiKey {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Gemini API Key configured")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } header: {
+                Text("Required")
+            } footer: {
+                Text("Get your Gemini API key from aistudio.google.com/apikey")
+            }
+
+            // Optional API Keys
             Section {
                 SecureInputField(
                     title: "OpenAI API Key",
@@ -294,25 +323,42 @@ public struct APIKeySettingsView: View {
                 ) {
                     showingKey = showingKey == "coefont" ? nil : "coefont"
                 }
+            } header: {
+                Text("Optional")
             } footer: {
-                Text("API keys are stored securely in your device's keychain.")
+                Text("API keys are stored securely in your device's Keychain.")
             }
 
             Section {
                 Button("Save API Keys") {
                     Task {
                         await viewModel.saveAPIKeys(
+                            gemini: geminiKey,
                             openAI: openAIKey,
                             anthropic: anthropicKey,
                             coeFont: coeFontKey
                         )
+                        showSaveSuccess = true
+                        checkGeminiKey()
                     }
                 }
-                .disabled(openAIKey.isEmpty && anthropicKey.isEmpty && coeFontKey.isEmpty)
+                .disabled(geminiKey.isEmpty && openAIKey.isEmpty && anthropicKey.isEmpty && coeFontKey.isEmpty)
             }
         }
         .navigationTitle("API Keys")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            checkGeminiKey()
+        }
+        .alert("API Keys Saved", isPresented: $showSaveSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your API keys have been securely stored in Keychain.")
+        }
+    }
+
+    private func checkGeminiKey() {
+        hasGeminiKey = KeychainManager.shared.exists(key: .geminiAPIKey)
     }
 }
 
@@ -427,8 +473,8 @@ public final class SettingsViewModel: ObservableObject {
     }
 
     public var hasAPIKeysConfigured: Bool {
-        // Check if any API keys are configured
-        return false // Would check keychain
+        // Check if Gemini API key is configured (required)
+        return KeychainManager.shared.exists(key: .geminiAPIKey)
     }
 
     public func loadSettings() async {
@@ -445,8 +491,11 @@ public final class SettingsViewModel: ObservableObject {
         settings = UserSettings()
     }
 
-    public func saveAPIKeys(openAI: String, anthropic: String, coeFont: String) async {
+    public func saveAPIKeys(gemini: String, openAI: String, anthropic: String, coeFont: String) async {
         let keyManager = APIKeyManager()
+        if !gemini.isEmpty {
+            try? await keyManager.setGeminiAPIKey(gemini)
+        }
         if !openAI.isEmpty {
             try? await keyManager.setOpenAIAPIKey(openAI)
         }

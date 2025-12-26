@@ -34,6 +34,7 @@ public enum KeychainError: Error, LocalizedError, Sendable {
 
 /// Keychain item keys
 public enum KeychainKey: String, Sendable {
+    case geminiAPIKey = "com.livelingo.gemini-api-key"
     case openAIAPIKey = "com.livelingo.openai-api-key"
     case anthropicAPIKey = "com.livelingo.anthropic-api-key"
     case coeFontAPIKey = "com.livelingo.coefont-api-key"
@@ -211,9 +212,34 @@ public final class KeychainManager: KeychainManagerProtocol, @unchecked Sendable
 public actor APIKeyManager {
     private let keychain: KeychainManagerProtocol
 
+    public static let shared = APIKeyManager()
+
     public init(keychain: KeychainManagerProtocol = KeychainManager.shared) {
         self.keychain = keychain
     }
+
+    // MARK: - Gemini API Key (Primary)
+
+    public var geminiAPIKey: String? {
+        get { try? keychain.loadString(key: .geminiAPIKey) }
+    }
+
+    public var hasGeminiAPIKey: Bool {
+        keychain.exists(key: .geminiAPIKey)
+    }
+
+    public func setGeminiAPIKey(_ key: String) throws {
+        guard !key.isEmpty else {
+            throw KeychainError.encodingFailed
+        }
+        try keychain.save(key, for: .geminiAPIKey)
+    }
+
+    public func deleteGeminiAPIKey() throws {
+        try keychain.delete(key: .geminiAPIKey)
+    }
+
+    // MARK: - Other API Keys
 
     public var openAIAPIKey: String? {
         get { try? keychain.loadString(key: .openAIAPIKey) }
@@ -240,6 +266,7 @@ public actor APIKeyManager {
     }
 
     public func clearAllAPIKeys() throws {
+        try? keychain.delete(key: .geminiAPIKey)
         try? keychain.delete(key: .openAIAPIKey)
         try? keychain.delete(key: .anthropicAPIKey)
         try? keychain.delete(key: .coeFontAPIKey)
