@@ -107,6 +107,35 @@ public enum DesignSystem {
         public static let spring = SwiftUI.Animation.spring(response: 0.3, dampingFraction: 0.7)
     }
 
+    // MARK: - Face-to-Face Translation Colors
+
+    /// Colors for Face-to-Face translation UI
+    public enum FaceToFace {
+        // Translation Panel (Top in Portrait, Left in Landscape for other language)
+        public static let translationBackground = Color(hex: "A8D5BA")  // Mint green
+        public static let translationBubble = Color.white
+        public static let translationText = Color.black
+
+        // Original Speech Panel (Bottom in Portrait, Right in Landscape for source language)
+        public static let originalBackground = Color.white
+        public static let originalBubble = Color(hex: "F2F2F7")  // Light gray
+        public static let originalText = Color(hex: "3C3C43")    // Dark gray
+
+        // Landscape mode specific
+        public static let leftPanelBubble = Color(hex: "F2F2F7")   // Light gray for English
+        public static let rightPanelBubble = Color(hex: "E8F5E9")  // Light mint for Japanese
+
+        // Control Bar
+        public static let controlBarBackground = Color.white
+        public static let tealAccent = Color(hex: "3AAFA9")        // Teal for buttons
+        public static let buttonBackground = Color(hex: "F2F2F7")  // Button background
+
+        // Button States
+        public static let stopButtonColor = Color(hex: "3AAFA9")   // Teal
+        public static let muteActiveColor = Color(hex: "FF6B6B")   // Red when muted
+        public static let muteInactiveColor = Color(hex: "3AAFA9") // Teal when unmuted
+    }
+
     // MARK: - Icons
 
     public enum Icons {
@@ -131,6 +160,8 @@ public enum DesignSystem {
         public static let trash = "trash.fill"
         public static let edit = "pencil"
         public static let add = "plus"
+        public static let grid = "square.grid.2x2"
+        public static let stopSquare = "stop.fill"
     }
 }
 

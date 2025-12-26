@@ -56,7 +56,7 @@ public struct RootView: View {
                 }
 
             case .ready:
-                ConversationView()
+                FaceToFaceView()  // Use Face-to-Face translation UI
             }
         }
         .animation(DesignSystem.Animation.standard, value: appState.launchState)

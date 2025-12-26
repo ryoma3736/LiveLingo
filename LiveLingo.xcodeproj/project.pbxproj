@@ -10,6 +10,8 @@
 		15C62436BCFB94DF917EA7A7 /* RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE30674F3E2EEF6E2E6E8DF /* RepositoryProtocols.swift */; };
 		16D94E2821734697275A13F5 /* EntityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3853CB46340D047D47F7EA /* EntityTests.swift */; };
 		17236EAA8D01A9FFB15C669F /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20BE5AE06DBB992C6F5A395A /* ConversationView.swift */; };
+		FACE2FACE01234567890ABCD /* FaceToFaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE2FACEFILE01234567890 /* FaceToFaceView.swift */; };
+		FLAG1LANG01234567890ABCD /* FlagLanguageSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = FLAG1LANGFILE01234567890 /* FlagLanguageSelector.swift */; };
 		29B96AC35284BC2EAD3EA4FA /* ViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 074C18EE3563610FC3391753 /* ViewModelTests.swift */; };
 		30E47D8954166D1D79261E39 /* GlossaryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACA588070E1948DACF82A4F7 /* GlossaryManager.swift */; };
 		3278228BD573B24FC43C22D4 /* AsyncAlgorithms in Frameworks */ = {isa = PBXBuildFile; productRef = 200F69107DBC7F1869FF3286 /* AsyncAlgorithms */; };
@@ -78,6 +80,8 @@
 		151F9AA731BC6EA241422ACA /* PauseDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseDetector.swift; sourceTree = "<group>"; };
 		15DC36DB2E8E20875103102B /* GeminiLiveModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiLiveModels.swift; sourceTree = "<group>"; };
 		20BE5AE06DBB992C6F5A395A /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
+		FACE2FACEFILE01234567890 /* FaceToFaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceToFaceView.swift; sourceTree = "<group>"; };
+		FLAG1LANGFILE01234567890 /* FlagLanguageSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlagLanguageSelector.swift; sourceTree = "<group>"; };
 		20F8762C5062479FFD3FE652 /* AppleTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleTTSService.swift; sourceTree = "<group>"; };
 		268FA2619B9AA86D4450B5D0 /* LiveLingoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveLingoTests.swift; sourceTree = "<group>"; };
 		27589FEB2B22FFA028BDF109 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
@@ -186,6 +190,7 @@
 			isa = PBXGroup;
 			children = (
 				20BE5AE06DBB992C6F5A395A /* ConversationView.swift */,
+				FACE2FACEFILE01234567890 /* FaceToFaceView.swift */,
 				14696E323BF2A2999637F4A9 /* HistoryView.swift */,
 				46480AD58050EBCE4A7D2D9E /* SettingsView.swift */,
 			);
@@ -389,6 +394,7 @@
 		D3E22445F8A71D9A81F8EEF5 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				FLAG1LANGFILE01234567890 /* FlagLanguageSelector.swift */,
 				74FEEA8987F37B3EF500C695 /* LanguageSelector.swift */,
 				F5EB00EA3C797AD3524FEE5B /* RecordingButton.swift */,
 				11401BFB43D32C7C9321415C /* TranscriptBubble.swift */,
@@ -552,6 +558,8 @@
 				69EDE030B69EC3FA165922A1 /* ConversationContextManager.swift in Sources */,
 				389B3F018DFA98915BD3DE1D /* ConversationSession.swift in Sources */,
 				17236EAA8D01A9FFB15C669F /* ConversationView.swift in Sources */,
+				FACE2FACE01234567890ABCD /* FaceToFaceView.swift in Sources */,
+				FLAG1LANG01234567890ABCD /* FlagLanguageSelector.swift in Sources */,
 				5F689126A4AEF91A4AF1301C /* DependencyContainer.swift in Sources */,
 				EB5AE888CBC23DFFF9F20E5B /* DesignSystem.swift in Sources */,
 				60A64585AA8A4F6450F67D9B /* GeminiAudioStreamer.swift in Sources */,

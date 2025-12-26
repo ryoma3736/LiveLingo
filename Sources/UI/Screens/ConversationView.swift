@@ -358,6 +358,7 @@ public final class ConversationViewModel: ObservableObject {
 
     @Published public var isRecognizing: Bool = false
     @Published public var isSpeakerEnabled: Bool = true
+    @Published public var isMuted: Bool = false  // Microphone mute state
     @Published public var showError: Bool = false
     @Published public var errorMessage: String = ""
     @Published public var canRetry: Bool = false
